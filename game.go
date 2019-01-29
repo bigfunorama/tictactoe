@@ -1,7 +1,15 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/bigfunorama/tictactoe/model"
+)
 
 func main() {
-	fmt.Println("Hello!")
+
+	fmt.Println("Hello! Want to play a game?")
+	b := model.BoardImp{}
+	(&b).Reset()
+	(&b).Display()
 }
