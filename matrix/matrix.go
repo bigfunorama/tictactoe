@@ -81,7 +81,7 @@ func (m *Matrix) String() string {
 	for i := 0; i < m.r; i++ {
 		out += "["
 		for j := 0; j < m.c; j++ {
-			out = fmt.Sprintf("%s %f2", out, m.data[i*m.c+j])
+			out = fmt.Sprintf("%s %.5f", out, m.data[i*m.c+j])
 		}
 		out += " ]\n"
 	}
@@ -240,18 +240,116 @@ func (m *Matrix) Transpose() *Matrix {
 	return out
 }
 
+type SingularMatrixError struct{}
+
+func (e *SingularMatrixError) Error() string {
+	return "Input Matrix was singular, inverse does not exist"
+}
+
+//Inverse finds the inverse of this matrix and returns it.
+//if the matrix is singular, Inverse returns a singular matrix error.
+func (m *Matrix) Inverse() (*Matrix, error) {
+	if m.c != m.r {
+		return nil, fmt.Errorf("Must be a square matrix to have an inverse")
+	}
+	augmented, _ := m.AppendColumns(Identity(m.r))
+	fmt.Println("start")
+	fmt.Println(augmented)
+	for i := 0; i < augmented.r; i++ {
+		arg := float64(1) / augmented.data[i*augmented.c+i]
+		augmented, _ = augmented.RowScalarMultiply(i, arg)
+		fmt.Println("convert to 1.0", i)
+		fmt.Println(augmented)
+		for j := 0; j < augmented.r; j++ {
+			if i != j {
+				arg := augmented.data[j*augmented.c+i]
+				augmented, _ = augmented.RowMulAdd(i, -arg, j)
+			}
+			fmt.Println("zero out", i, j)
+			fmt.Println(augmented)
+		}
+	}
+	for i := 0; i < augmented.r; i++ {
+		if augmented.data[i*augmented.c+i] <= 0.00000000001 &&
+			augmented.data[i*augmented.c+i] >= -0.00000000001 {
+			return nil, &SingularMatrixError{}
+		}
+	}
+	fmt.Println(augmented)
+	return augmented.ExtractMatrix(0, m.c, m.r, augmented.c)
+}
+
+//AppendRows combines rows of the rt matrix after the last of m and return it
 func (m *Matrix) AppendRows(rt *Matrix) (*Matrix, error) {
 	if m.c != rt.c {
 		return nil, &IncompatibleMatrixError{}
 	}
-	return nil, nil
+
+	out := NewMatrix(m.r+rt.r, m.c)
+	offset := 0
+	mOffset := 0
+	for j := 0; j < m.c; j++ {
+		copy(out.data[offset:offset+m.c], m.data[mOffset:mOffset+m.c])
+		offset += m.c
+		mOffset += m.c
+	}
+	rtOffset := 0
+	for j := 0; j < rt.r; j++ {
+		copy(out.data[offset:offset+m.c], rt.data[rtOffset:rtOffset+rt.c])
+		offset += rt.c
+		rtOffset += rt.c
+	}
+	return out, nil
 }
 
 func (m *Matrix) AppendColumns(rt *Matrix) (*Matrix, error) {
 	if m.r != rt.r {
 		return nil, &IncompatibleMatrixError{}
 	}
-	return nil, nil
+	out := NewMatrix(m.r, (m.c + rt.c))
+
+	mOffset := 0
+	rtOffset := 0
+	outOffset := 0
+	for i := 0; i < m.r; i++ {
+		copy(out.data[outOffset:(outOffset+m.c)], m.data[mOffset:(mOffset+m.c)])
+		mOffset += m.c
+		outOffset += m.c
+		copy(out.data[outOffset:(outOffset+rt.c)], rt.data[rtOffset:(rtOffset+rt.c)])
+		rtOffset += rt.c
+		outOffset += rt.c
+	}
+	return out, nil
+}
+
+//ExtractMatrix extracts the sub-matrix from this matrix that starts at ulRow, ulCol
+// and ends lrRow, lrCol where lrRow is the index of the next row after the sub-matrix
+//ends and lrCol is the first column after the sub-matrix ends.
+// Some requirements on the inputs.
+// ulCol <= lrCol
+// ulRow <= lrRow
+// 0 <= ulCol, lrCol
+func (m *Matrix) ExtractMatrix(ulRow, ulCol, lrRow, lrCol int) (*Matrix, error) {
+	if ulRow > lrRow ||
+		ulCol > lrCol ||
+		ulRow < 0 || ulRow >= m.r ||
+		ulCol < 0 || ulCol >= m.c ||
+		lrRow < 0 || lrRow > m.r ||
+		lrCol < 0 || lrCol > m.c {
+		return nil, fmt.Errorf("invalid arguments")
+	}
+	rows := lrRow - ulRow
+	cols := lrCol - ulCol
+	out := NewMatrix(rows, cols)
+	offset := 0
+	mOffset := ulRow*m.c + ulCol
+	for i := 0; i < rows; i++ {
+		copy(out.data[offset:(offset+cols)], m.data[mOffset:(mOffset+cols)])
+		offset += cols
+		mOffset += m.c
+	}
+	fmt.Println(out)
+	return out, nil
 }
 
 //

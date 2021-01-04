@@ -65,7 +65,7 @@ func TestIdentity(t *testing.T) {
 	for i := 0; i < I.Rows(); i++ {
 		v, _ := I.Get(i, i)
 		if v != 1.0 {
-			t.Errorf("error, expected 1.0, got %f", v)
+			t.Errorf("error, expected 1.0, got %.2f", v)
 		}
 	}
 }
@@ -202,7 +202,7 @@ func TestScalarRowMultiply(t *testing.T) {
 	output := []float64{1.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 1.0}
 	for i := 0; i < len(output); i++ {
 		if output[i] != e.data[i] {
-			t.Errorf("incorrect value, got %f2, expected %f2", e.data[i], output[i])
+			t.Errorf("incorrect value, got %.2f, expected %.2f", e.data[i], output[i])
 		}
 	}
 }
@@ -216,7 +216,7 @@ func TestRowInterchange(t *testing.T) {
 	output := []float64{0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0}
 	for i := 0; i < len(output); i++ {
 		if output[i] != e.data[i] {
-			t.Errorf("incorrect value, got %f2, expected %f2", e.data[i], output[i])
+			t.Errorf("incorrect value, got %.2f, expected %.2f", e.data[i], output[i])
 		}
 	}
 }
@@ -231,7 +231,7 @@ func TestRowMulAdd(t *testing.T) {
 	output := []float64{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 3.0, 0.0, 1.0}
 	for i := 0; i < len(output); i++ {
 		if output[i] != e.data[i] {
-			t.Errorf("incorrect value, got %f2, expected %f2", e.data[i], output[i])
+			t.Errorf("incorrect value, got %.2f, expected %.2f", e.data[i], output[i])
 		}
 	}
 }
@@ -242,7 +242,75 @@ func TestTranspose(t *testing.T) {
 	output := []float64{1, 3, 2, 4}
 	for i := 0; i < len(output); i++ {
 		if output[i] != out.data[i] {
-			t.Errorf("incorrect value, got %f2, expected %f2", out.data[i], output[i])
+			t.Errorf("incorrect value, got %.2f, expected %.2f", out.data[i], output[i])
+		}
+	}
+}
+
+func TestAppendColumns(t *testing.T) {
+	m := Identity(4)
+	out, err := m.AppendColumns(m)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	output := []float64{1, 0, 0, 0, 1, 0, 0, 0,
+		0, 1, 0, 0, 0, 1, 0, 0,
+		0, 0, 1, 0, 0, 0, 1, 0,
+		0, 0, 0, 1, 0, 0, 0, 1}
+	for i := 0; i < len(output); i++ {
+		if output[i] != out.data[i] {
+			t.Errorf("incorrect value, got %.2f, expected %.2f", out.data[i], output[i])
+		}
+	}
+}
+
+func TestAppendRows(t *testing.T) {
+	m := Identity(4)
+	out, err := m.AppendRows(m)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	output := []float64{1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
+	for i := 0; i < len(output); i++ {
+		if output[i] != out.data[i] {
+			t.Errorf("incorrect value, got %.2f, expected %.2f", out.data[i], output[i])
+		}
+	}
+}
+
+func TestExtractMatrix(t *testing.T) {
+	m := Identity(4)
+	out, err := m.ExtractMatrix(2, 2, 4, 4)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	output := []float64{1, 0, 0, 1}
+	for i := 0; i < len(output); i++ {
+		if output[i] != out.data[i] {
+			t.Errorf("incorrect value, got %.2f, expected %.2f", out.data[i], output[i])
+		}
+	}
+}
+
+func TestInverse(t *testing.T) {
+	m := &Matrix{r: 4, c: 4, data: []float64{2, 5, 10, 0, 1, 1, 1, 0, -2, -10, -30, 1, -1, -2, -3, 0}}
+	out, err := m.Inverse()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{0.5, 2.5, 0, 2.5, -1, -2, 0, -4, 0.5, 0.5, 0, 1.5, 6, 0, 1, 10}
+	for i := 0; i < len(output); i++ {
+		if out.data[i] < (output[i]-0.00005) || out.data[i] > (output[i]+0.00005) {
+			t.Errorf("incorrect value, got %.5f, expected %.5f", out.data[i], output[i])
 		}
 	}
 }
