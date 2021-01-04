@@ -5,26 +5,26 @@ import (
 )
 
 func TestDisplay(t *testing.T) {
-	b := BoardImp{}
-	(&b).Reset()
-	(&b).Display()
+	b := NewBoard()
+	b.Reset()
+	b.Display()
 }
 
 func TestReset(t *testing.T) {
 	b := BoardImp{}
-	(&b).Reset()
-	(&b).Display()
-	(&b).Move(1, 0, 0)
+	b.Reset()
+	b.Display()
+	b.Move(&Move{1, 0, 0})
 }
 
 func TestValidateDoubleMove(t *testing.T) {
 	b := BoardImp{}
-	(&b).Reset()
-	err := (&b).Move(1, 0, 0)
+	b.Reset()
+	err := b.Move(&Move{1, 0, 0})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	err = (&b).Move(1, 0, 0)
+	err = b.Move(&Move{1, 0, 0})
 	if err == nil {
 		t.Errorf(err.Error())
 	}
@@ -32,33 +32,33 @@ func TestValidateDoubleMove(t *testing.T) {
 
 func TestValidateBadMove(t *testing.T) {
 	b := BoardImp{}
-	(&b).Reset()
-	err := (&b).Move(0, 0, 0)
+	b.Reset()
+	err := b.Move(&Move{0, 0, 0})
 	if err == nil {
 		t.Errorf(err.Error())
 	}
 
-	err = (&b).Move(1, 0, 3)
+	err = b.Move(&Move{1, 0, 3})
 	if err == nil {
 		t.Errorf(err.Error())
 	}
 
-	err = (&b).Move(1, 0, -1)
+	err = b.Move(&Move{1, 0, -1})
 	if err == nil {
 		t.Errorf(err.Error())
 	}
 
-	err = (&b).Move(1, -1, 0)
+	err = b.Move(&Move{1, -1, 0})
 	if err == nil {
 		t.Errorf(err.Error())
 	}
 
-	err = (&b).Move(1, 3, 0)
+	err = b.Move(&Move{1, 3, 0})
 	if err == nil {
 		t.Errorf(err.Error())
 	}
 
-	err = (&b).Move(1, 3, 3)
+	err = b.Move(&Move{1, 3, 3})
 	if err == nil {
 		t.Errorf(err.Error())
 	}
