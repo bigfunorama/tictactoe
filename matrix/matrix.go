@@ -2,6 +2,8 @@ package matrix
 
 import "fmt"
 
+const precision = 1e-9
+
 type Matrix struct {
 	data []float64
 	r    int
@@ -96,7 +98,8 @@ func (m *Matrix) Equals(rt *Matrix) bool {
 		return false
 	}
 	for i := 0; i < len(m.data); i++ {
-		if m.data[i] != rt.data[i] {
+		if m.data[i] <= (rt.data[i]-precision) ||
+			m.data[i] >= (rt.data[i]+precision) {
 			return false
 		}
 	}
@@ -252,27 +255,16 @@ func (m *Matrix) Inverse() (*Matrix, error) {
 	if m.c != m.r {
 		return nil, fmt.Errorf("Must be a square matrix to have an inverse")
 	}
-	augmented, _ := m.AppendColumns(Identity(m.r))
+	augmented, err := m.AppendColumns(Identity(m.r))
+	if err != nil {
+		return nil, err
+	}
 	fmt.Println("start")
 	fmt.Println(augmented)
 	for i := 0; i < augmented.r; i++ {
-		arg := float64(1) / augmented.data[i*augmented.c+i]
-		augmented, _ = augmented.RowScalarMultiply(i, arg)
-		fmt.Println("convert to 1.0", i)
-		fmt.Println(augmented)
-		for j := 0; j < augmented.r; j++ {
-			if i != j {
-				arg := augmented.data[j*augmented.c+i]
-				augmented, _ = augmented.RowMulAdd(i, -arg, j)
-			}
-			fmt.Println("zero out", i, j)
-			fmt.Println(augmented)
-		}
-	}
-	for i := 0; i < augmented.r; i++ {
-		if augmented.data[i*augmented.c+i] <= 0.00000000001 &&
-			augmented.data[i*augmented.c+i] >= -0.00000000001 {
-			return nil, &SingularMatrixError{}
+		augmented, err = augmented.Pivot(i, i)
+		if err != nil {
+			return nil, err
 		}
 	}
 	fmt.Println(augmented)
@@ -288,7 +280,7 @@ func (m *Matrix) AppendRows(rt *Matrix) (*Matrix, error) {
 	out := NewMatrix(m.r+rt.r, m.c)
 	offset := 0
 	mOffset := 0
-	for j := 0; j < m.c; j++ {
+	for j := 0; j < m.r; j++ {
 		copy(out.data[offset:offset+m.c], m.data[mOffset:mOffset+m.c])
 		offset += m.c
 		mOffset += m.c
@@ -302,6 +294,7 @@ func (m *Matrix) AppendRows(rt *Matrix) (*Matrix, error) {
 	return out, nil
 }
 
+//AppendColumns appends the columns of matrix rt to matrix m and returns the results.
 func (m *Matrix) AppendColumns(rt *Matrix) (*Matrix, error) {
 	if m.r != rt.r {
 		return nil, &IncompatibleMatrixError{}
@@ -352,16 +345,33 @@ func (m *Matrix) ExtractMatrix(ulRow, ulCol, lrRow, lrCol int) (*Matrix, error) 
 	return out, nil
 }
 
-//
-// minimize cT*x
-// subject to Ax = b
-// x >= 0
-//
-type Tableau struct {
-	//Cost vector
-	C *Matrix
-	//constraints
-	A *Matrix
-	//contraints
-	B *Matrix
+//Pivot applies elementary row operations to zero out all entries in col c
+//except the entry at row r column c. This entry must not be 0
+func (m *Matrix) Pivot(r, c int) (*Matrix, error) {
+	if r >= m.r || r < 0 ||
+		c >= m.c || c < 0 ||
+		(m.data[r*m.c+c] <= precision && m.data[r*m.c+c] >= -precision) {
+		return nil, fmt.Errorf("invalid arguments")
+	}
+	augmented := m.Clone()
+	fmt.Println("start")
+	fmt.Println(augmented)
+
+	//normalize row r relative to the value at r,c
+	div := float64(1) / augmented.data[r*augmented.c+c]
+	augmented, _ = augmented.RowScalarMultiply(r, div)
+	fmt.Println("convert to 1.0", r, c)
+	fmt.Println(augmented)
+	jOffset := 0
+	for j := 0; j < augmented.r; j++ {
+		if r != j {
+			arg := augmented.data[jOffset+c]
+			augmented, _ = augmented.RowMulAdd(r, -arg, j)
+			fmt.Println("zero out", j, c)
+			fmt.Println(augmented)
+		}
+		jOffset += augmented.c
+	}
+	fmt.Println(augmented)
+	return augmented, nil
 }

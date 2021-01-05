@@ -1,6 +1,9 @@
 package matrix
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 type testSetValue struct {
 	r        int
@@ -286,6 +289,59 @@ func TestAppendRows(t *testing.T) {
 	}
 }
 
+func TestAppendColumns2(t *testing.T) {
+	a := &Matrix{r: 2, c: 6, data: []float64{4, 2, -1, 0, 1, 0, 1, 4, 0, -1, 0, 1}}
+	b := &Matrix{r: 2, c: 1, data: []float64{12, 6}}
+	tmp, err := a.AppendColumns(b)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{4, 2, -1, 0, 1, 0, 12, 1, 4, 0, -1, 0, 1, 6}
+	for i := 0; i < len(output); i++ {
+		if tmp.data[i] != output[i] {
+			t.Errorf("expected %.5f, got %.5f", output[i], tmp.data[i])
+		}
+	}
+}
+
+func TestAppendColumns3(t *testing.T) {
+	c := &Matrix{r: 1, c: 6, data: []float64{1, 2, 3, 4, 5, 6}}
+	tmp, err := c.AppendColumns(&Matrix{c: 1, r: 1, data: []float64{7}})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{1, 2, 3, 4, 5, 6, 7}
+	for i := 0; i < len(output); i++ {
+		if tmp.data[i] != output[i] {
+			t.Errorf("expected %.5f, got %.5f", output[i], tmp.data[i])
+		}
+	}
+}
+
+func TestMultipleAppends(t *testing.T) {
+	a := &Matrix{r: 2, c: 6, data: []float64{4, 2, -1, 0, 1, 0, 1, 4, 0, -1, 0, 1}}
+	b := &Matrix{r: 2, c: 1, data: []float64{12, 6}}
+	tmp, _ := a.AppendColumns(b)
+	fmt.Println(tmp)
+	c := &Matrix{r: 1, c: 6, data: []float64{1, 2, 3, 4, 5, 6}}
+	tmp2, _ := c.AppendColumns(&Matrix{c: 1, r: 1, data: []float64{7}})
+	fmt.Println(tmp2)
+	out, err := tmp.AppendRows(tmp2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fmt.Println(out)
+	output := []float64{4, 2, -1, 0, 1, 0, 12, 1, 4, 0, -1, 0, 1, 6, 1, 2, 3, 4, 5, 6, 7}
+	for i := 0; i < len(output); i++ {
+		if out.data[i] != output[i] {
+			t.Errorf("expected %.5f, got %.5f", output[i], out.data[i])
+		}
+	}
+}
+
 func TestExtractMatrix(t *testing.T) {
 	m := Identity(4)
 	out, err := m.ExtractMatrix(2, 2, 4, 4)
@@ -301,7 +357,10 @@ func TestExtractMatrix(t *testing.T) {
 }
 
 func TestInverse(t *testing.T) {
-	m := &Matrix{r: 4, c: 4, data: []float64{2, 5, 10, 0, 1, 1, 1, 0, -2, -10, -30, 1, -1, -2, -3, 0}}
+	m := &Matrix{r: 4, c: 4, data: []float64{2, 5, 10, 0,
+		1, 1, 1, 0,
+		-2, -10, -30, 1,
+		-1, -2, -3, 0}}
 	out, err := m.Inverse()
 	if err != nil {
 		t.Error(err)
@@ -309,7 +368,35 @@ func TestInverse(t *testing.T) {
 	}
 	output := []float64{0.5, 2.5, 0, 2.5, -1, -2, 0, -4, 0.5, 0.5, 0, 1.5, 6, 0, 1, 10}
 	for i := 0; i < len(output); i++ {
-		if out.data[i] < (output[i]-0.00005) || out.data[i] > (output[i]+0.00005) {
+		if out.data[i] < (output[i]-precision) || out.data[i] > (output[i]+precision) {
+			t.Errorf("incorrect value, got %.5f, expected %.5f", out.data[i], output[i])
+		}
+	}
+}
+
+func TestInverseSingular(t *testing.T) {
+	m := &Matrix{r: 4, c: 4, data: []float64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}}
+	_, err := m.Inverse()
+	if err == nil {
+		t.Error("Matrix is singular and inverse should return an error")
+		return
+	}
+}
+
+func TestPivot(t *testing.T) {
+	m := &Matrix{r: 4, c: 4, data: []float64{2, 5, 10, 0, 1, 1, 1, 0, -2, -10, -30, 1, -1, -2, -3, 0}}
+	out, err := m.Pivot(0, 0)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{1, 2.5, 5, 0,
+		0, -1.5, -4, 0,
+		0, -5, -20, 1,
+		0, 0.5, 2, 0,
+	}
+	for i := 0; i < len(output); i++ {
+		if out.data[i] < (output[i]-precision) || out.data[i] > (output[i]+precision) {
 			t.Errorf("incorrect value, got %.5f, expected %.5f", out.data[i], output[i])
 		}
 	}
