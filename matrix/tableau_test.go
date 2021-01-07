@@ -1,6 +1,8 @@
 package matrix
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestTableauCreation(t *testing.T) {
 	a := &Matrix{r: 2, c: 6, data: []float64{4, 2, -1, 0, 1, 0, 1, 4, 0, -1, 0, 1}}
@@ -59,7 +61,7 @@ func TestPhase1(t *testing.T) {
 	a := &Matrix{r: 2, c: 4, data: []float64{4, 2, -1, 0, 1, 4, 0, -1}}
 	b := &Matrix{r: 2, c: 1, data: []float64{12, 6}}
 	ct := &Matrix{r: 1, c: 4, data: []float64{0, 0, 0, 0}}
-	tb, err := Phase1(ct, a, b)
+	tb, err := phase1(ct, a, b)
 	if err != nil {
 		t.Error(err)
 		return
@@ -72,6 +74,66 @@ func TestPhase1(t *testing.T) {
 		if tb.data.data[i] < (output[i]-precision) ||
 			tb.data.data[i] > (output[i]+precision) {
 			t.Errorf("incorrect value, expected %.5f, got %.5f", output[i], tb.data.data[i])
+		}
+	}
+}
+
+func TestPhase2(t *testing.T) {
+	a := &Matrix{r: 2, c: 4, data: []float64{4, 2, -1, 0, 1, 4, 0, -1}}
+	b := &Matrix{r: 2, c: 1, data: []float64{12, 6}}
+	ct := &Matrix{r: 1, c: 4, data: []float64{0, 0, 0, 0}}
+	tb, err := phase1(ct, a, b)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	ct2 := &Matrix{r: 1, c: 4, data: []float64{2, 3, 0, 0}}
+	ans, err := phase2(tb, ct2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{float64(18) / 7.0, float64(6) / 7.0}
+	for i := 0; i < len(output); i++ {
+		if ans.data[i] < (output[i]-precision) ||
+			ans.data[i] > (output[i]+precision) {
+			t.Errorf("incorrect value, expected %.5f, got %.5f", output[i], ans.data[i])
+		}
+	}
+}
+
+func TestLPSolve(t *testing.T) {
+	a := &Matrix{r: 2, c: 4, data: []float64{4, 2, -1, 0, 1, 4, 0, -1}}
+	b := &Matrix{r: 2, c: 1, data: []float64{12, 6}}
+	ct := &Matrix{r: 1, c: 4, data: []float64{2, 3, 0, 0}}
+	ans, err := LPSolve(ct, a, b)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{float64(18) / 7.0, float64(6) / 7.0}
+	for i := 0; i < len(output); i++ {
+		if ans.data[i] < (output[i]-precision) ||
+			ans.data[i] > (output[i]+precision) {
+			t.Errorf("incorrect value, expected %.5f, got %.5f", output[i], ans.data[i])
+		}
+	}
+}
+
+func TestLPSolve2(t *testing.T) {
+	a := &Matrix{r: 2, c: 4, data: []float64{2, 1, 1, 0, 1, 4, 0, 1}}
+	b := &Matrix{r: 2, c: 1, data: []float64{3, 4}}
+	ct := &Matrix{r: 1, c: 4, data: []float64{-7, -6, 0, 0}}
+	ans, err := LPSolve(ct, a, b)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{float64(8) / 7.0, float64(5) / 7.0}
+	for i := 0; i < len(output); i++ {
+		if ans.data[i] < (output[i]-precision) ||
+			ans.data[i] > (output[i]+precision) {
+			t.Errorf("incorrect value, expected %.5f, got %.5f", output[i], ans.data[i])
 		}
 	}
 }

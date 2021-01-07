@@ -62,7 +62,8 @@ func (t *Tableau) maxNegativeRCC() (int, error) {
 	return col, nil
 }
 
-func (t *Tableau) Pivot(col int) error {
+//pivot around column col
+func (t *Tableau) pivot(col int) error {
 	tmp, err := t.data.Pivot(col, col)
 	if err != nil {
 		return err
@@ -71,7 +72,10 @@ func (t *Tableau) Pivot(col int) error {
 	return nil
 }
 
-func Phase1(ct, a, b *Matrix) (*Tableau, error) {
+//phase1 executes the first phase of the two phase simplex algorithm
+//returning the resulting Tableau. This process constructs the canonical
+//Tableau and converts to a basic feasible solution to the original LP problem.
+func phase1(ct, a, b *Matrix) (*Tableau, error) {
 	i := Identity(a.r)
 	tmp, _ := a.AppendColumns(i)
 	top, err := tmp.AppendColumns(b)
@@ -87,6 +91,9 @@ func Phase1(ct, a, b *Matrix) (*Tableau, error) {
 
 	cprime, _ := ct.AppendColumns(ones)
 	data, err := top.AppendRows(cprime)
+	if err != nil {
+		return nil, err
+	}
 
 	for idx := 0; idx < a.r; idx++ {
 		data, err = data.Pivot(idx, idx+a.c)
@@ -94,17 +101,57 @@ func Phase1(ct, a, b *Matrix) (*Tableau, error) {
 			return nil, err
 		}
 	}
-	fmt.Println(data)
+
 	t := &Tableau{data: data}
+	return optimize(t)
+}
+
+func optimize(t *Tableau) (*Tableau, error) {
 	col, err := t.maxNegativeRCC()
-	fmt.Println("pivoting on column", col)
 	for err == nil {
-		err = t.Pivot(col)
+		err = t.pivot(col)
 		if err == nil {
 			col, err = t.maxNegativeRCC()
 		}
-		fmt.Println("new tableau")
-		fmt.Println(t.data)
 	}
 	return t, nil
+}
+
+//phase2 executes the second phase of the two phase simplex algorithm.
+//The tableau is expected to contain a basic feasible solution. Phase 2
+//pivots from the initial basic feasible solution to the optimal basic
+//feasible solution.
+func phase2(tb *Tableau, ct *Matrix) (*Matrix, error) {
+	fmt.Println("phase 2")
+	ap1 := tb.A()
+	ap1, _ = ap1.ExtractMatrix(0, 0, 2, 4)
+	bp1 := tb.B()
+	data, err := ap1.AppendColumns(bp1)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(data)
+	c, _ := ct.AppendColumns(NewMatrix(1, 1))
+	data, err = data.AppendRows(c)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(data)
+	t2, err := optimize(&Tableau{data: data})
+	if err != nil {
+		return nil, err
+	}
+	return t2.B(), nil
+}
+
+//LPSolve produces the optimal basic feasible solution to the given standard
+//form LP problem.
+func LPSolve(ct, a, b *Matrix) (*Matrix, error) {
+	pct := NewMatrix(1, a.c)
+	t, err := phase1(pct, a, b)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return phase2(t, ct)
 }

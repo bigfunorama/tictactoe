@@ -341,7 +341,6 @@ func (m *Matrix) ExtractMatrix(ulRow, ulCol, lrRow, lrCol int) (*Matrix, error) 
 		offset += cols
 		mOffset += m.c
 	}
-	fmt.Println(out)
 	return out, nil
 }
 
@@ -372,6 +371,5 @@ func (m *Matrix) Pivot(r, c int) (*Matrix, error) {
 		}
 		jOffset += augmented.c
 	}
-	fmt.Println(augmented)
 	return augmented, nil
 }
