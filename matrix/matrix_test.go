@@ -196,6 +196,25 @@ func TestMatrixMultiplication(t *testing.T) {
 	}
 }
 
+func TestMul2(t *testing.T) {
+	a := &Matrix{r: 2, c: 2, data: []float64{1, 2,
+		3, 4}}
+	b := &Matrix{r: 2, c: 3, data: []float64{1, 2, 3,
+		4, 5, 6}}
+	out, err := a.Mul(b)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{1*1 + 2*4, 1*2 + 2*5, 1*3 + 2*6,
+		3*1 + 4*4, 3*2 + 4*5, 3*3 + 4*6}
+	for i := 0; i < len(output); i++ {
+		if output[i] != out.data[i] {
+			t.Errorf("incorrect value, got %.2f, expected %.2f", out.data[i], output[i])
+		}
+	}
+}
+
 func TestScalarRowMultiply(t *testing.T) {
 	I := Identity(3)
 	e, err := I.RowScalarMultiply(1, 3.0)
@@ -398,6 +417,56 @@ func TestPivot(t *testing.T) {
 	for i := 0; i < len(output); i++ {
 		if out.data[i] < (output[i]-precision) || out.data[i] > (output[i]+precision) {
 			t.Errorf("incorrect value, got %.5f, expected %.5f", out.data[i], output[i])
+		}
+	}
+}
+
+func TestLeastSquares(t *testing.T) {
+	a := &Matrix{r: 3, c: 2, data: []float64{0.3, 0.1, 0.4, 0.2, 0.3, 0.7}}
+	b := &Matrix{r: 3, c: 1, data: []float64{5, 3, 4}}
+	pinv, err := a.PseudoInverse()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	ans, err := pinv.Mul(b)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{10.566502463, 0.960591133}
+	for i := 0; i < len(output); i++ {
+		if ans.data[i] < (output[i]-precision) ||
+			ans.data[i] > (output[i]+precision) {
+			t.Errorf("incorrect value, expected %.9f, got %.9f", output[i], ans.data[i])
+		}
+	}
+}
+
+func TestHadamard(t *testing.T) {
+	lt := &Matrix{r: 4, c: 4, data: []float64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}}
+	ans, err := lt.Hadamard(lt)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	output := []float64{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
+	for i := 0; i < len(output); i++ {
+		if ans.data[i] < (output[i]-precision) ||
+			ans.data[i] > (output[i]+precision) {
+			t.Errorf("incorrect value, expected %.9f, got %.9f", output[i], ans.data[i])
+		}
+	}
+}
+
+func TestApply(t *testing.T) {
+	lt := &Matrix{r: 6, c: 1, data: []float64{-2, -1, 0, 1, 2, 3}}
+	ans := lt.Apply(&RELU{})
+	output := []float64{0, 0, 0, 1, 2, 3}
+	for i := 0; i < len(output); i++ {
+		if ans.data[i] < (output[i]-precision) ||
+			ans.data[i] > (output[i]+precision) {
+			t.Errorf("incorrect value, expected %.9f, got %.9f", output[i], ans.data[i])
 		}
 	}
 }

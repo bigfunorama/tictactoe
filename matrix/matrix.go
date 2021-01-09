@@ -212,7 +212,7 @@ func (e *IncompatibleMatrixError) Error() string {
 
 //Mul multiplies this matrix by the rt matrix and returns the result
 func (m *Matrix) Mul(rt *Matrix) (*Matrix, error) {
-	if (m.r != rt.c) || (m.c != rt.r) {
+	if m.c != rt.r {
 		return nil, &IncompatibleMatrixError{}
 	}
 	out := NewMatrix(m.r, rt.c)
@@ -372,4 +372,58 @@ func (m *Matrix) Pivot(r, c int) (*Matrix, error) {
 		jOffset += augmented.c
 	}
 	return augmented, nil
+}
+
+//PseudoInverse returns [m^T * m]^(-1) * m^T
+func (m *Matrix) PseudoInverse() (*Matrix, error) {
+	if m.r < m.c {
+		return nil, fmt.Errorf("the pseudoinverse only exists for an overdetermined system")
+	}
+	trans := m.Transpose()
+
+	fmt.Println("transpose")
+	fmt.Println(trans)
+	tmp, _ := trans.Mul(m)
+
+	fmt.Println("m^T * m")
+	fmt.Println(tmp)
+	inv, err := tmp.Inverse()
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("inverse")
+	fmt.Println(inv)
+	return inv.Mul(trans)
+}
+
+//Hadamard product is a pointwise element multiplication of two matrices of the
+//same size.
+func (m *Matrix) Hadamard(rt *Matrix) (*Matrix, error) {
+	if m.r != rt.r && m.c != rt.c {
+		return nil, &IncompatibleMatrixError{}
+	}
+	out := NewMatrix(m.r, m.c)
+	offset := 0
+	for i := 0; i < m.r; i++ {
+		for j := 0; j < m.c; j++ {
+			out.data[offset+j] = m.data[offset+j] + rt.data[offset+j]
+		}
+		offset += m.c
+	}
+	return out, nil
+}
+
+//Apply applies the Activation function h to all elements of this matrix
+//and returns the result
+func (m *Matrix) Apply(h Activation) *Matrix {
+	out := NewMatrix(m.r, m.c)
+	offset := 0
+	for i := 0; i < m.r; i++ {
+		for j := 0; j < m.c; j++ {
+			out.data[offset+j] = h.Activate(m.data[offset+j])
+		}
+		offset += m.c
+	}
+	return out
 }
