@@ -159,6 +159,29 @@ func (m *Matrix) Add(rt *Matrix) (*Matrix, error) {
 	return out, nil
 }
 
+//Sub performs a matrix subtraction with this matrix and rt and returns the result
+//as a new matrix. This matrix is not modified.
+func (m *Matrix) Sub(rt *Matrix) (*Matrix, error) {
+	if rt.c != m.c ||
+		rt.r != m.r {
+		return nil, &InvalidAddOperation{}
+	}
+	out := m.Clone()
+	for i := 0; i < len(m.data); i++ {
+		out.data[i] -= rt.data[i]
+	}
+	return out, nil
+}
+
+//ScalarMul multiples every element in m by a Scalar v
+func (m *Matrix) ScalarMul(v float64) *Matrix {
+	out := m.Clone()
+	for i := 0; i < len(out.data); i++ {
+		out.data[i] *= v
+	}
+	return out
+}
+
 //RowScalarMultiply multiplies row r by scalar v and returns the resulting matrix
 func (m *Matrix) RowScalarMultiply(r int, v float64) (*Matrix, error) {
 	if r < 0 || r >= m.r {
