@@ -7,7 +7,7 @@ import (
 )
 
 func TestLayer(t *testing.T) {
-	layer := NewLayer(2, 10, &RELU{}, true)
+	layer := NewLayer(2, 10, &RELU{}, &RELUPrime{}, true)
 
 	if layer.Inputs() != 2 {
 		t.Errorf("Expected 2 inputs but got %d", layer.Inputs())
@@ -41,14 +41,14 @@ func TestLayer(t *testing.T) {
 }
 
 func TestAddLayer(t *testing.T) {
-	ann := NewMLann(0.05)
-	layer := NewLayer(2, 10, &RELU{}, true)
+	ann := NewMLann(0.05, 0.1)
+	layer := NewLayer(2, 10, &RELU{}, &RELUPrime{}, true)
 	err := ann.AddLayer(layer)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	layer2 := NewLayer(10, 2, &RELU{}, false)
+	layer2 := NewLayer(10, 2, &RELU{}, &RELUPrime{}, false)
 	err = ann.AddLayer(layer2)
 	if err != nil {
 		t.Errorf(err.Error())
@@ -56,14 +56,14 @@ func TestAddLayer(t *testing.T) {
 }
 
 func TestFeedForward(t *testing.T) {
-	ann := NewMLann(0.05)
-	layer := NewLayer(2, 10, &RELU{}, true)
+	ann := NewMLann(0.05, 0.1)
+	layer := NewLayer(2, 10, &RELU{}, &RELUPrime{}, true)
 	err := ann.AddLayer(layer)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	layer2 := NewLayer(10, 2, &RELU{}, false)
+	layer2 := NewLayer(10, 2, &RELU{}, &RELUPrime{}, false)
 	err = ann.AddLayer(layer2)
 	if err != nil {
 		t.Errorf(err.Error())
@@ -80,46 +80,90 @@ func TestFeedForward(t *testing.T) {
 	fmt.Println(output)
 }
 
+func TestDistance(t *testing.T) {
+	lt := &Matrix{r: 3, c: 1, data: []float64{2.0, 2.0, 2.0}}
+	rt := &Matrix{r: 3, c: 1, data: []float64{4.0, 4.0, 4.0}}
+	out, err := distance(lt, rt)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if out != 12.0 {
+		t.Errorf("expected 12.0 got %.5f", out)
+	}
+}
+
 func TestTrain(t *testing.T) {
 	//generate the samples
+	sd := float64(1.0) / 50.0
 	samples := make([]Sample, 0)
-	for i := 0; i < 100; i++ {
-		if i < 25 {
-			samples = append(samples, Sample{
-				x: &Matrix{r: 2, c: 1, data: []float64{rand.NormFloat64(), rand.NormFloat64()}},
-				y: &Matrix{r: 2, c: 1, data: []float64{1.0, 0.0}},
-			})
-		} else {
-			samples = append(samples, Sample{
-				x: &Matrix{r: 2, c: 1, data: []float64{(rand.NormFloat64() + 2.0), (rand.NormFloat64() + 2.0)}},
-				y: &Matrix{r: 2, c: 1, data: []float64{0.0, 1.0}},
-			})
-		}
+	for i := 0; i < 200; i++ {
+		in := float64(i) / 200.0
+		samples = append(samples, Sample{
+			x: &Matrix{r: 1, c: 1, data: []float64{in}},
+			y: &Matrix{r: 1, c: 1, data: []float64{float64(3.0)*in + 2 + rand.NormFloat64()*sd}},
+		})
 	}
+
 	//Initialize the network
-	ann := NewMLann(0.05)
-	layer := NewLayer(2, 10, &RELU{}, false)
+	ann := NewMLann(0.3, 0.5)
+	layer := NewLayer(1, 4, &Linear{}, &LinearPrime{}, true)
 	err := ann.AddLayer(layer)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	layer2 := NewLayer(10, 2, &RELU{}, false)
+	layer2 := NewLayer(4, 4, &Sigmoid{}, &SigmoidPrime{}, false)
 	err = ann.AddLayer(layer2)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
+	layer3 := NewLayer(4, 4, &Sigmoid{}, &SigmoidPrime{}, false)
+	err = ann.AddLayer(layer3)
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	layer4 := NewLayer(4, 1, &Linear{}, &LinearPrime{}, false)
+	err = ann.AddLayer(layer4)
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
 
+	zero := &Matrix{r: 1, c: 1, data: []float64{0.0}}
+	middle := &Matrix{r: 1, c: 1, data: []float64{0.5}}
+	end := &Matrix{r: 1, c: 1, data: []float64{1.0}}
 	//Train the network
-	for idx := 0; idx < 50; idx++ {
-		err = ann.Train(samples)
+	out0, _ := ann.FeedForward(zero)
+	out1, _ := ann.FeedForward(middle)
+	out2, _ := ann.FeedForward(end)
+
+	for idx := 0; idx < 10000; idx++ {
+		fmt.Println("2.0, 3.5, 5.0")
+		fmt.Printf("%.5f, %.5f, %.5f\n", out0.data[0], out1.data[0], out2.data[0])
+
+		err = ann.Train(samples, false)
 		if err != nil {
 			t.Error(err.Error())
 			return
 		}
+		dist, err2 := ann.SquaredError(samples)
+		if err2 != nil {
+			t.Error(err2.Error())
+			return
+		}
+		fmt.Println(idx, dist)
+		out0, _ = ann.FeedForward(zero)
+		out1, _ = ann.FeedForward(middle)
+		out2, _ = ann.FeedForward(end)
+
+	}
+	for idx := 0; idx < len(ann.layers); idx++ {
+		fmt.Println("layer", idx)
+		fmt.Println(ann.layers[idx])
 	}
 
-	//Evaluate the error
-
+	fmt.Println("2.0, 3.5, 5.0")
+	fmt.Printf("%.5f, %.5f, %.5f\n", out0.data[0], out1.data[0], out2.data[0])
 }

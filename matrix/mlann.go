@@ -23,6 +23,31 @@ func (r *RELU) Activate(input float64) float64 {
 	return input
 }
 
+type Linear struct{}
+
+func (l *Linear) Activate(input float64) float64 {
+	return input
+}
+
+type LinearPrime struct{}
+
+func (lp *LinearPrime) Activate(input float64) float64 {
+	return float64(1.0)
+}
+
+type Sigmoid struct{}
+
+func (s *Sigmoid) Activate(input float64) float64 {
+	return float64(1.0) / (1.0 + math.Exp(-input))
+}
+
+type SigmoidPrime struct{}
+
+func (sp *SigmoidPrime) Activate(input float64) float64 {
+	s := float64(1.0) / (1.0 + math.Exp(-input))
+	return s * (float64(1.0) - s)
+}
+
 //RELUPrime is the first derivative of the RELU activation function
 type RELUPrime struct{}
 
@@ -39,6 +64,7 @@ func (r *RELUPrime) Activate(input float64) float64 {
 type Layer struct {
 	//Activation function to be applied
 	h       Activation
+	hprime  Activation
 	weights *Matrix
 	bias    *Matrix
 }
@@ -48,23 +74,29 @@ type Layer struct {
 //output h(w * a + b) where h is the activation function w is the weight matrix with
 //dimensionality inputs x outputs and b is a bias vector of length outputs. If the
 //initilLayer flag is set, then the bias terms will be initialized to 0.
-func NewLayer(inputs, outputs int, h Activation, initialLayer bool) *Layer {
-	sd := math.Sqrt(float64(1.0) / float64(inputs))
+func NewLayer(inputs, outputs int, h, hprime Activation, initialLayer bool) *Layer {
 	//set the intial weights as 0 mean Gaussian and sd of 1/sqrt(inputs)
+	//unless this is the initial layer where we set sd to 1.0
+	sd := math.Sqrt(float64(1.0) / float64(inputs))
+	if initialLayer {
+		sd = float64(1.0)
+	}
+
 	output := make([]float64, inputs*outputs)
 	for i := 0; i < len(output); i++ {
 		output[i] = rand.NormFloat64() * sd
 	}
-	//set the initial bias as 0 mean Gaussian and sd of 1
+
 	bias := make([]float64, outputs)
 	if !initialLayer {
 		for i := 0; i < len(bias); i++ {
-			bias[i] = rand.NormFloat64()
+			bias[i] = 0.1
 		}
 	}
 
 	return &Layer{
 		h:       h,
+		hprime:  hprime,
 		weights: &Matrix{r: outputs, c: inputs, data: output},
 		bias:    &Matrix{r: outputs, c: 1, data: bias},
 	}
@@ -113,9 +145,10 @@ func (m *Layer) String() string {
 type MLann struct {
 	layers []*Layer
 	eta    float64
+	lambda float64
 }
 
-func NewMLann(eta float64) *MLann {
+func NewMLann(eta, lambda float64) *MLann {
 	layers := make([]*Layer, 0)
 	return &MLann{layers: layers, eta: eta}
 }
@@ -162,113 +195,188 @@ type Sample struct {
 	y *Matrix
 }
 
+func (s Sample) String() string {
+	return fmt.Sprintf("%s\n%s", s.x, s.y)
+}
+
+func distance(lt, rt *Matrix) (float64, error) {
+	if lt.c != 1 || rt.c != 1 || lt.r != rt.r {
+		return 0.0, &IncompatibleMatrixError{}
+	}
+	dist := float64(0)
+	for idx := 0; idx < lt.r; idx++ {
+		dist += ((lt.data[idx] - rt.data[idx]) * (lt.data[idx] - rt.data[idx]))
+	}
+	return math.Sqrt(dist), nil
+}
+
+//SquaredError returns the sum of squares error for the given slice of samples and
+//the current network.
+func (m *MLann) SquaredError(samples []Sample) (float64, error) {
+	se := 0.0
+	for _, sample := range samples {
+		out, err := m.FeedForward(sample.x)
+		if err != nil {
+			return -1.0, err
+		}
+		dist, err := distance(out, sample.y)
+		if err != nil {
+			return -1.0, err
+		}
+		se += dist
+	}
+	return se, nil
+}
+
 //Train applies the error produced by the network for the given input
 //sample x to the current network.
-func (m *MLann) Train(samples []Sample) error {
-	for _, sample := range samples {
-		err := m.Update(sample, len(samples))
+func (m *MLann) Train(samples []Sample, verbose bool) error {
+	updatesW := make([]*Matrix, 0)
+	updatesB := make([]*Matrix, 0)
+	for idx := 0; idx < len(m.layers); idx++ {
+		updatesW = append(updatesW, NewMatrix(m.layers[idx].weights.r, m.layers[idx].weights.c))
+		updatesB = append(updatesB, NewMatrix(m.layers[idx].bias.r, m.layers[idx].bias.c))
+	}
+
+	for s1, sample := range samples {
+		nablaw, nablab, err := m.Update(sample, len(samples), verbose)
 		if err != nil {
 			return err
 		}
+		for idx := 0; idx < len(m.layers); idx++ {
+			updatesW[idx], _ = updatesW[idx].Add(nablaw[idx])
+			updatesB[idx], _ = updatesB[idx].Add(nablab[idx])
+			if s1 == 0 && verbose {
+				fmt.Println("nablab", idx, nablab[idx])
+				fmt.Println("nablaw", idx, nablaw[idx])
+			}
+		}
+	}
+	//then apply the updates through stochastic gradient descent
+	for idx := 0; idx < len(m.layers); idx++ {
+		updateW := updatesW[idx].ScalarMul(m.eta / float64(len(samples)))
+		if verbose {
+			fmt.Println("updateW", idx)
+			fmt.Println(updateW)
+		}
+
+		tmp := m.layers[idx].weights.ScalarMul(float64(1.0) - m.eta*m.lambda/float64(len(samples)))
+		updateW, _ = tmp.Sub(updateW)
+		m.layers[idx].weights = updateW
+
+		updateB := updatesB[idx].ScalarMul(m.eta / float64(len(samples)))
+		updateB, _ = m.layers[idx].bias.Sub(updateB)
+		m.layers[idx].bias = updateB
 	}
 	return nil
 }
 
-//Update uses the x,y pair to update weights in the network based on this sample
-func (m *MLann) Update(in Sample, batchSize int) error {
-	zs := make([]*Matrix, len(m.layers))
-	as := make([]*Matrix, len(m.layers))
+//Compute the direction of update for this sample
+func (m *MLann) Update(in Sample, batchSize int, verbose bool) ([]*Matrix, []*Matrix, error) {
+	aks := make([]*Matrix, len(m.layers))
+	hks := make([]*Matrix, len(m.layers))
 	//go forward through the network to produce the outcomes at the various layers
-	a := in.x
-	for idx := 0; idx < len(m.layers); idx++ {
-		if idx > 0 {
-			a = as[idx-1]
+	h := in.x
+	for k := 0; k < len(m.layers); k++ {
+		if k > 0 {
+			h = hks[k-1]
 		}
-		tmp, err := m.layers[idx].weights.Mul(a)
+		hk, err := m.layers[k].weights.Mul(h)
 		if err != nil {
-			fmt.Println("Mul", m.layers[idx].weights.r, " x ", m.layers[idx].weights.c, " * ", a.r, " x ", a.c)
-			fmt.Println("Mul", idx, m.layers[idx].weights, a)
-			return err
+			fmt.Println("Mul", m.layers[k].weights.r, " x ", m.layers[k].weights.c, " * ", h.r, " x ", h.c)
+			fmt.Println("Mul", k, m.layers[k].weights, h)
+			return nil, nil, err
 		}
-		tmp, err = tmp.Add(m.layers[idx].bias)
+		hk, err = hk.Add(m.layers[k].bias)
 		if err != nil {
-			fmt.Println("Add", idx, tmp, m.layers[idx].bias)
-			return err
+			fmt.Println("Add", k, hk, m.layers[k].bias)
+			return nil, nil, err
 		}
-		zs[idx] = tmp
-		as[idx] = tmp.Apply(m.layers[idx].h)
+		aks[k] = hk
+		hks[k] = hk.Apply(m.layers[k].h)
 	}
 
 	//then go back and compute the gradients
 	nablab := make([]*Matrix, len(m.layers))
 	nablaw := make([]*Matrix, len(m.layers))
-	L := len(as) - 1
-	delta, err := as[L].Sub(in.y)
-	sp := &RELUPrime{}
+	L := len(hks) - 1
+	delta, err := hks[L].Sub(in.y)
 	if err != nil {
-		fmt.Println("as[len(as)-1].Sub(in.y)", L, as[L], in.y)
-		return err
+		fmt.Println("as[len(as)-1].Sub(in.y)", L, hks[L], in.y)
+		return nil, nil, err
 	}
-	delta, err = delta.Hadamard(zs[L].Apply(sp))
+
+	if verbose {
+		fmt.Println("***********************")
+		fmt.Println(len(m.layers)-1, "delta = hks[L].Sub(in.y)\n", delta)
+		fmt.Println("***********************")
+	}
+
+	//Linear output layer
+	delta, err = delta.Hadamard(aks[L].Apply(m.layers[L].hprime))
 	if err != nil {
-		fmt.Println("delta.Hadamard(zs[len(zs)-1].Apply(sp))", delta, zs[L])
-		return err
+		fmt.Println("delta.Hadamard(aks[L].Apply(m.layers[L].hprime))", delta, aks[L])
+		return nil, nil, err
 	}
+
+	if verbose {
+		fmt.Println(len(m.layers)-1, "aks[L]", aks[L])
+		fmt.Println(len(m.layers)-1, "aks[L].Apply(m.layers[L].hprime)\n", aks[L].Apply(m.layers[L].hprime))
+		fmt.Println(len(m.layers)-1, "delta = delta.Hadamard(aks[L].Apply(m.layers[L].hprime))\n", delta)
+		fmt.Println("***********************")
+	}
+
 	nablab[L] = delta
-	tmp, err := delta.Mul(as[L-1].Transpose())
+	tmp, err := delta.Mul(hks[L-1].Transpose())
 	if err != nil {
-		fmt.Println("delta.Mul(as[len(as)-1].Transpose())\n", delta, as[len(as)-1], "transpose")
-		return err
+		fmt.Println("delta.Mul(as[len(as)-1].Transpose())\n", delta, hks[len(hks)-1], "transpose")
+		return nil, nil, err
 	}
 	nablaw[L] = tmp
-	for idx := L - 1; idx >= 0; idx-- {
+	if verbose {
+		fmt.Println(len(m.layers)-1, "delta = delta.Mul(hks[L-1].Transpose())\n", delta)
+		fmt.Println("***********************")
+	}
+
+	for k := L - 1; k >= 0; k-- {
 
 		//Compute the next delta
-		delta, err = m.layers[idx+1].weights.Transpose().Mul(delta)
+		delta, err = m.layers[k+1].weights.Transpose().Mul(delta)
 		if err != nil {
-			fmt.Println("m.layers[idx].weights.Transpose().Mul(delta)\n", m.layers[idx].weights.Transpose(), delta)
-			return err
-		}
-		delta, err = delta.Hadamard(zs[idx].Apply(sp))
-		if err != nil {
-			fmt.Println("delta.Hadamard(zs[idx].Apply(sp))\n", delta, zs[idx])
-			return err
+			fmt.Println("m.layers[idx].weights.Transpose().Mul(delta)\n", m.layers[k].weights.Transpose(), delta)
+			return nil, nil, err
 		}
 
-		nablab[idx] = delta
-		if idx > 0 {
-			tmp, err := delta.Mul(as[idx-1].Transpose())
-			if err != nil {
-				fmt.Println("delta.Mul(as[idx-1].Transpose())\n", delta, as[idx-1].Transpose())
-				return err
-			}
-			nablaw[idx] = tmp
+		if verbose {
+			fmt.Println(k+1, "m.layers[k+1].weights.Transpose()\n", m.layers[k+1].weights.Transpose())
+			fmt.Println(k, "delta = m.layers[k+1].weights.Transpose().Mul(delta)\n", delta)
+			fmt.Println("***********************")
+		}
+
+		delta, err = delta.Hadamard(aks[k].Apply(m.layers[k].hprime))
+		if err != nil {
+			fmt.Println("delta.Hadamard(zs[idx].Apply(sp))\n", delta, aks[k])
+			return nil, nil, err
+		}
+		if verbose {
+			fmt.Println(k, "aks[k]", aks[k])
+			fmt.Println(k, "aks[k].Apply(m.layers[k].hprime)\n", aks[k].Apply(m.layers[k].hprime))
+			fmt.Println(k, "delta = delta.Hadamard(aks[k].Apply(m.layers[k].hprime))\n", delta)
+			fmt.Println("***********************")
+		}
+
+		nablab[k] = delta
+		var tmp *Matrix
+		if k > 0 {
+			tmp = hks[k-1].Transpose()
 		} else {
-			tmp, err := delta.Mul(in.x.Transpose())
-			if err != nil {
-				fmt.Println("delta.Mul(as[idx-1].Transpose())\n", delta, as[idx-1].Transpose())
-				return err
-			}
-			nablaw[idx] = tmp
+			tmp = in.x.Transpose()
 		}
-	}
-
-	//then apply the updates through stochastic gradient descent
-	for idx := 0; idx < len(m.layers); idx++ {
-		updateW := nablaw[idx].ScalarMul(m.eta / float64(batchSize))
-		updateW, err = m.layers[idx].weights.Sub(updateW)
+		out, err := delta.Mul(tmp)
 		if err != nil {
-			fmt.Println("m.layers[idx].weights.Sub(updateW)\n", m.layers[idx].weights, updateW)
-			return err
+			return nil, nil, err
 		}
-		m.layers[idx].weights = updateW
-		updateB := nablab[idx].ScalarMul(m.eta / float64(batchSize))
-		updateB, err = m.layers[idx].bias.Sub(updateB)
-		if err != nil {
-			fmt.Println("m.layers[idx].bias.Sub(updateB)\n", m.layers[idx].bias, updateB)
-			return err
-		}
-		m.layers[idx].bias = updateB
+		nablaw[k] = out
 	}
-	return nil
+	return nablaw, nablab, nil
 }

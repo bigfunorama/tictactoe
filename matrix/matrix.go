@@ -430,7 +430,7 @@ func (m *Matrix) Hadamard(rt *Matrix) (*Matrix, error) {
 	offset := 0
 	for i := 0; i < m.r; i++ {
 		for j := 0; j < m.c; j++ {
-			out.data[offset+j] = m.data[offset+j] + rt.data[offset+j]
+			out.data[offset+j] = m.data[offset+j] * rt.data[offset+j]
 		}
 		offset += m.c
 	}
