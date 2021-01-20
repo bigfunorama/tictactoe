@@ -94,37 +94,37 @@ func TestDistance(t *testing.T) {
 
 func TestTrain(t *testing.T) {
 	//generate the samples
-	sd := float64(1.0) / 50.0
+	sd := float64(1.0) / 10.0
 	samples := make([]Sample, 0)
-	for i := 0; i < 200; i++ {
-		in := float64(i) / 200.0
+	for i := 0; i < 100; i++ {
+		in := float64(i) / 100.0
 		samples = append(samples, Sample{
 			x: &Matrix{r: 1, c: 1, data: []float64{in}},
-			y: &Matrix{r: 1, c: 1, data: []float64{float64(3.0)*in + 2 + rand.NormFloat64()*sd}},
+			y: &Matrix{r: 1, c: 1, data: []float64{float64(3.0)*in*in + 2 + rand.NormFloat64()*sd}},
 		})
 	}
 
 	//Initialize the network
-	ann := NewMLann(0.3, 0.5)
-	layer := NewLayer(1, 4, &Linear{}, &LinearPrime{}, true)
+	ann := NewMLann(0.5, 0.)
+	layer := NewLayer(1, 8, &Linear{}, &LinearPrime{}, true)
 	err := ann.AddLayer(layer)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	layer2 := NewLayer(4, 4, &Sigmoid{}, &SigmoidPrime{}, false)
+	layer2 := NewLayer(8, 8, &Sigmoid{}, &SigmoidPrime{}, false)
 	err = ann.AddLayer(layer2)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	layer3 := NewLayer(4, 4, &Sigmoid{}, &SigmoidPrime{}, false)
+	layer3 := NewLayer(8, 8, &Sigmoid{}, &SigmoidPrime{}, false)
 	err = ann.AddLayer(layer3)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	layer4 := NewLayer(4, 1, &Linear{}, &LinearPrime{}, false)
+	layer4 := NewLayer(8, 1, &Linear{}, &LinearPrime{}, false)
 	err = ann.AddLayer(layer4)
 	if err != nil {
 		t.Errorf(err.Error())
@@ -140,7 +140,7 @@ func TestTrain(t *testing.T) {
 	out2, _ := ann.FeedForward(end)
 
 	for idx := 0; idx < 10000; idx++ {
-		fmt.Println("2.0, 3.5, 5.0")
+		fmt.Println("2.0, 2.75, 5.0")
 		fmt.Printf("%.5f, %.5f, %.5f\n", out0.data[0], out1.data[0], out2.data[0])
 
 		err = ann.Train(samples, false)
@@ -164,6 +164,6 @@ func TestTrain(t *testing.T) {
 		fmt.Println(ann.layers[idx])
 	}
 
-	fmt.Println("2.0, 3.5, 5.0")
+	fmt.Println("2.0, 2.75, 5.0")
 	fmt.Printf("%.5f, %.5f, %.5f\n", out0.data[0], out1.data[0], out2.data[0])
 }
