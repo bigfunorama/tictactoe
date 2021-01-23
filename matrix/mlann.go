@@ -17,35 +17,10 @@ type RELU struct{}
 
 //Activate applies the activation function to the input and returns the result
 func (r *RELU) Activate(input float64) float64 {
-	if input < 0 {
+	if input <= 0 {
 		return float64(0.0)
 	}
 	return input
-}
-
-type Linear struct{}
-
-func (l *Linear) Activate(input float64) float64 {
-	return input
-}
-
-type LinearPrime struct{}
-
-func (lp *LinearPrime) Activate(input float64) float64 {
-	return float64(1.0)
-}
-
-type Sigmoid struct{}
-
-func (s *Sigmoid) Activate(input float64) float64 {
-	return float64(1.0) / (1.0 + math.Exp(-input))
-}
-
-type SigmoidPrime struct{}
-
-func (sp *SigmoidPrime) Activate(input float64) float64 {
-	s := float64(1.0) / (1.0 + math.Exp(-input))
-	return s * (float64(1.0) - s)
 }
 
 //RELUPrime is the first derivative of the RELU activation function
@@ -57,6 +32,40 @@ func (r *RELUPrime) Activate(input float64) float64 {
 		return float64(0.0)
 	}
 	return 1.0
+}
+
+//Linear Activation function
+type Linear struct{}
+
+//Activate produces an output equal to it's input
+func (l *Linear) Activate(input float64) float64 {
+	return input
+}
+
+//LinearPrime produces the derivitive of the Linear activation function
+//so 1.0 regardless of the input
+type LinearPrime struct{}
+
+//Activate produces 1.0 as the output regardless of the input.
+func (lp *LinearPrime) Activate(input float64) float64 {
+	return float64(1.0)
+}
+
+//Sigmoid produces the sigmoid function output
+type Sigmoid struct{}
+
+//Activate produces 1 / (1 + Exp(-input))
+func (s *Sigmoid) Activate(input float64) float64 {
+	return float64(1.0) / (1.0 + math.Exp(-input))
+}
+
+//SigmoidPrime produces the first derivitive output of the sigmoid function
+type SigmoidPrime struct{}
+
+//Activate produces Sigmoid(x) * ( 1 - Sigmoid(x))
+func (sp *SigmoidPrime) Activate(input float64) float64 {
+	s := float64(1.0) / (1.0 + math.Exp(-input))
+	return s * (float64(1.0) - s)
 }
 
 //Layer provides a single layer in ANN encapsulating weights and
@@ -125,16 +134,18 @@ func (l *Layer) Activate(x *Matrix) (*Matrix, error) {
 	return tmp.Apply(l.h), nil
 }
 
-func (m *Layer) String() string {
+//String produces a string representation of the layer using 5 places of precision
+// [ weights ] [ bias ]
+func (l *Layer) String() string {
 	out := ""
-	for i := 0; i < m.weights.r; i++ {
+	for i := 0; i < l.weights.r; i++ {
 		out += "["
-		for j := 0; j < m.weights.c; j++ {
-			out = fmt.Sprintf("%s %.5f", out, m.weights.data[i*m.weights.c+j])
+		for j := 0; j < l.weights.c; j++ {
+			out = fmt.Sprintf("%s %.5f", out, l.weights.data[i*l.weights.c+j])
 		}
 		out += " ]    [ "
-		for j := 0; j < m.bias.c; j++ {
-			out = fmt.Sprintf("%s %.5f", out, m.bias.data[i*m.bias.c+j])
+		for j := 0; j < l.bias.c; j++ {
+			out = fmt.Sprintf("%s %.5f", out, l.bias.data[i*l.bias.c+j])
 		}
 		out += " ]\n"
 	}
@@ -148,11 +159,28 @@ type MLann struct {
 	lambda float64
 }
 
+//NewMLann produces a new MLann with learning rate eta and regularization parameter lambda
 func NewMLann(eta, lambda float64) *MLann {
 	layers := make([]*Layer, 0)
 	return &MLann{layers: layers, eta: eta}
 }
 
+//Layers proivdes the number of layers currently installed in the network
+func (m *MLann) Layers() int {
+	return len(m.layers)
+}
+
+func (m *MLann) String() string {
+	out := ""
+	for idx := 0; idx < m.Layers(); idx++ {
+		out = fmt.Sprintf("%s\nlayer %d\n", out, idx)
+		out += m.layers[idx].String()
+	}
+	return out
+}
+
+//IncompatibleLayerError indicates that the inputs of the layer to be added are
+//incompatible with the outputs of the prior layer already in the network.
 type IncompatibleLayerError struct{ val string }
 
 func (ile *IncompatibleLayerError) Error() string {
@@ -195,6 +223,10 @@ type Sample struct {
 	y *Matrix
 }
 
+//NewSample constructs a Sample and returns it
+func NewSample(x, y *Matrix) Sample {
+	return Sample{x: x, y: y}
+}
 func (s Sample) String() string {
 	return fmt.Sprintf("%s\n%s", s.x, s.y)
 }
@@ -228,9 +260,21 @@ func (m *MLann) SquaredError(samples []Sample) (float64, error) {
 	return se, nil
 }
 
-//Train applies the error produced by the network for the given input
+//Train iterates over the samples provide training the network to minize the
+//error given the training samples.
+func (m *MLann) Train(samples []Sample, verbose bool, iterations int) error {
+	for idx := 0; idx < iterations; idx++ {
+		err := m.iterate(samples, verbose)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//iterate applies the error produced by the network for the given input
 //sample x to the current network.
-func (m *MLann) Train(samples []Sample, verbose bool) error {
+func (m *MLann) iterate(samples []Sample, verbose bool) error {
 	updatesW := make([]*Matrix, 0)
 	updatesB := make([]*Matrix, 0)
 	for idx := 0; idx < len(m.layers); idx++ {
@@ -238,18 +282,14 @@ func (m *MLann) Train(samples []Sample, verbose bool) error {
 		updatesB = append(updatesB, NewMatrix(m.layers[idx].bias.r, m.layers[idx].bias.c))
 	}
 
-	for s1, sample := range samples {
-		nablaw, nablab, err := m.Update(sample, len(samples), verbose)
+	for _, sample := range samples {
+		nablaw, nablab, err := m.backprop(sample, len(samples), false)
 		if err != nil {
 			return err
 		}
 		for idx := 0; idx < len(m.layers); idx++ {
 			updatesW[idx], _ = updatesW[idx].Add(nablaw[idx])
 			updatesB[idx], _ = updatesB[idx].Add(nablab[idx])
-			if s1 == 0 && verbose {
-				fmt.Println("nablab", idx, nablab[idx])
-				fmt.Println("nablaw", idx, nablaw[idx])
-			}
 		}
 	}
 	//then apply the updates through stochastic gradient descent
@@ -263,7 +303,10 @@ func (m *MLann) Train(samples []Sample, verbose bool) error {
 		tmp := m.layers[idx].weights.ScalarMul(float64(1.0) - m.eta*m.lambda/float64(len(samples)))
 		updateW, _ = tmp.Sub(updateW)
 		m.layers[idx].weights = updateW
-
+		if verbose {
+			fmt.Println("weights", idx)
+			fmt.Println(updateW)
+		}
 		updateB := updatesB[idx].ScalarMul(m.eta / float64(len(samples)))
 		updateB, _ = m.layers[idx].bias.Sub(updateB)
 		m.layers[idx].bias = updateB
@@ -271,8 +314,8 @@ func (m *MLann) Train(samples []Sample, verbose bool) error {
 	return nil
 }
 
-//Compute the direction of update for this sample
-func (m *MLann) Update(in Sample, batchSize int, verbose bool) ([]*Matrix, []*Matrix, error) {
+//backprop produces the direction of update for this sample propagated through the network
+func (m *MLann) backprop(in Sample, batchSize int, verbose bool) ([]*Matrix, []*Matrix, error) {
 	aks := make([]*Matrix, len(m.layers))
 	hks := make([]*Matrix, len(m.layers))
 	//go forward through the network to produce the outcomes at the various layers
