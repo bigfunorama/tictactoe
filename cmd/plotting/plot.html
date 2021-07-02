@@ -8,17 +8,6 @@
     <script src="https://cdn.plot.ly/plotly-2.2.0.min.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>
-    <script>
-        axios.get('http://localhost:8080/fetchdata')
-        .then(response => {
-            console.log(response.data);
-            Plotly.update("errorPlot", /* JSON object */ {
-                "data": response.data,
-                "layout": {}
-            })
-        })
-        .catch(error => console.error(error));
-    </script>
 </head>
 <body>
     <div id="dataPlot"></div>
@@ -69,15 +58,20 @@
         });
     </script>
     <script>
+        axios.get('http://localhost:8080/fetchdata')
+        .then(response => {
+            console.log(response.data);
+            var data = [response.data];
+            Plotly.newPlot('errorPlot', data);
+        })
+        .catch(error => console.error(error));
+
         var errs = {
             x: [1, 2, 3, 4],
             y: [10, 15, 13, 17],
             mode: 'markers',
             type: 'scatter'
         };
-        var data = [errs];
-
-        Plotly.newPlot('errorPlot', data);
 
     </script>
 </body>

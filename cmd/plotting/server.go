@@ -10,7 +10,7 @@ import (
 )
 
 func readFile(fname string) (string, error) {
-	f, err := os.Open("./plot.html")
+	f, err := os.Open(fname)
 	if err != nil {
 		return "", err
 	}
@@ -42,6 +42,10 @@ func plotHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, out)
 }
 
+func readCSV(fname string, xlabel, ylabel, zlabel) []byte {
+	
+}
+
 func dataHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/fetchdata" {
 		http.Error(w, "not found", http.StatusNotFound)
@@ -53,17 +57,15 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f, err := os.Open("./test.csv")
+	vals := r.URL.Query()
+	xlabel := vals.Get("x")
+	ylabel := vals.Get("y")
+	zlabel := vals.Get("z")
+	out, err := readCSV("./test.csv", xlabel, ylabel, zlabel)
 	if err != nil {
-		fmt.Fprintf(w, "Error loading html")
+		http.Error(w, "internal error, "+err.Error(), http.StatusInternalServerError)
 	}
-	defer f.Close()
-	in := bufio.NewReader(f)
-	b, err := ioutil.ReadAll(in)
-	if err != nil {
-		fmt.Fprintf(w, "Error reading html")
-	}
-	fmt.Fprintf(w, string(b))
+	fmt.Fprintf(w, out)
 }
 
 func trainingHandler(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +78,11 @@ func trainingHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
+	out, err := readFile("./training.json")
+	if err != nil {
+		http.Error(w, "internal error, "+err.Error(), http.StatusInternalServerError)
+	}
+	fmt.Fprintf(w, out)
 }
 
 func main() {
