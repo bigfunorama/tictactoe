@@ -116,7 +116,6 @@ func (m *Matrix) Set(r, c int, val float64) error {
 		return &InvalidRowError{row: r}
 	}
 
-	fmt.Println("setting location", r, m.c, c, r*m.c+c)
 	m.data[r*m.c+c] = val
 	return nil
 }

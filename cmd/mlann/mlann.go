@@ -69,33 +69,29 @@ func makeMatrix(r, c int, data []float64) *matrix.Matrix {
 	return out
 }
 
+func convSamples(in []matrix.Sample, ann *matrix.MLann) [][]float64 {
+	data := make([][]float64, 2)
+	data[0] = make([]float64, len(in))
+	data[1] = make([]float64, len(in))
+	for idx := range in {
+		data[0][idx], _ = in[idx].Y().Get(0, 0)
+		out, _ := ann.FeedForward(in[idx].X())
+		data[1][idx], _ = out.Get(0, 0)
+	}
+	return data
+}
+
 func main() {
-	if err := ui.Init(); err != nil {
-		log.Fatalf("failed to initialize termui: %v", err)
-	}
-	defer ui.Close()
-
-	p := widgets.NewParagraph()
-	p.Text = "Hello World!"
-	p.SetRect(0, 0, 25, 5)
-
-	ui.Render(p)
-
-	for e := range ui.PollEvents() {
-		if e.Type == ui.KeyboardEvent {
-			break
-		}
-	}
-
 	//generate the samples
 	sd := float64(1.0) / 10.0
 	samples := generateData(100, sd)
 
 	//Initialize the network
-	ann, err := makeNetwork(4, 4, 1, 1, 1.0, 0.1, "relu")
+	ann, err := makeNetwork(2, 4, 1, 1, 1.0, 0.1, "sigmoid")
 	if err != nil {
 		return
 	}
+
 	zero := makeMatrix(1, 1, []float64{0.0})
 	middle := makeMatrix(1, 1, []float64{0.5})
 	end := makeMatrix(1, 1, []float64{1.0})
@@ -112,7 +108,7 @@ func main() {
 		c, _ := out2.Get(0, 0)
 		fmt.Printf("%.8f, %.8f, %.8f\n", a, b, c)
 
-		err = ann.Train(samples, true, 3)
+		err = ann.Train(samples, false, 1000)
 		if err != nil {
 			return
 		}
@@ -133,4 +129,21 @@ func main() {
 	b, _ := out1.Get(0, 0)
 	c, _ := out2.Get(0, 0)
 	fmt.Printf("%.8f, %.8f, %.8f\n", a, b, c)
+
+	if err := ui.Init(); err != nil {
+		log.Fatalf("failed to initialize termui: %v", err)
+	}
+	defer ui.Close()
+
+	plot := widgets.NewPlot()
+	plot.Data = convSamples(samples, ann)
+	plot.SetRect(0, 0, 120, 50)
+	plot.PlotType = widgets.ScatterPlot
+	ui.Render(plot)
+
+	for e := range ui.PollEvents() {
+		if e.Type == ui.KeyboardEvent {
+			break
+		}
+	}
 }

@@ -10,68 +10,44 @@
     <script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>
 </head>
 <body>
-    <div id="dataPlot"></div>
+    <div id="dataPlot">
+        <select id="selectXFeature">
+            <option>Choose x feature</option>
+        </select>
+        <select id="selectYFeature">
+            <option>Choose y feature</option>
+        </select>
+        <select id="selectZFeature">
+            <option>Choose z feature</option>
+        </select>
+        <input id="plot" type="button" value="plot"></input>
+    </div>
     <div id="errorPlot"></div>
     <script>
-        d3.csv('http://localhost:8080/fetchdata', function(err, rows){
-            function unpack(rows, key) {
-                return rows.map(function(row){return row[key]; });}
-            var trace1 = {
-	            x:unpack(rows, 'x1'), y: unpack(rows, 'y1'), z: unpack(rows, 'z1'),
-	            mode: 'markers',
-                name: 'human',
-	            marker: {
-		        size: 3,
-		        line: {
-		            color: 'rgba(217, 217, 240, 0.14)',
-		            width: 0.5},
-		            opacity: 0.8},
-	                type: 'scatter3d'
-            };
-            var trace2 = {
-	            x:unpack(rows, 'x2'), y: unpack(rows, 'y2'), z: unpack(rows, 'z2'),
-	            mode: 'markers',
-	            name: 'bot',
-                marker: {
-		            size: 3,
-		            line: {
-		                color: 'rgba(240, 217, 217, 0.14)',
-		                width: 0.5
-                    },
-		            opacity: 0.8
-                },
-	                type: 'scatter3d'
-            };
+        var selectX = document.getElementById("selectXFeature")
+        var selectY = document.getElementById("selectYFeature")
+        var selectZ = document.getElementById("selectZFeature")
+        var data = []
+        d3.csv('http://localhost:8080/fetchdata', function(data){
+            console.log(Object.keys(data[0]));
+            var options = Object.keys(data[0]);
+            for (var idx = 0; idx < options.length; idx++) {
+                var opt = options[idx];
+                var elx = document.createElement("option");
+                elx.textContent = opt;
+                elx.value = opt;
+                selectX.appendChild(elx);
+                var ely = document.createElement("option");
+                ely.textContent = opt;
+                ely.value = opt;
+                selectY.appendChild(ely);
+                var elz = document.createElement("option");
+                elz.textContent = opt;
+                elz.value = opt;
+                selectZ.appendChild(elz);
+            }
 
-           var data = [trace1, trace2];
-            var layout = {
-                margin: {
-	                l: 0,
-	                r: 0,
-                	b: 0,
-	                t: 0
-                },
-                width: 1000,
-                height: 1000
-            };
-            Plotly.newPlot('dataPlot', data, layout);
         });
-    </script>
-    <script>
-        axios.get('http://localhost:8080/fetchdata')
-        .then(response => {
-            console.log(response.data);
-            var data = [response.data];
-            Plotly.newPlot('errorPlot', data);
-        })
-        .catch(error => console.error(error));
-
-        var errs = {
-            x: [1, 2, 3, 4],
-            y: [10, 15, 13, 17],
-            mode: 'markers',
-            type: 'scatter'
-        };
 
     </script>
 </body>
