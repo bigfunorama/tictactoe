@@ -41,7 +41,6 @@ func readMove() (mv *tictactoe.Move) {
 
 		}
 	}
-	return
 }
 
 func round(b tictactoe.Board, p tictactoe.Player) int {
