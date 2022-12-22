@@ -10,12 +10,14 @@ type Board interface {
 	Validate(mv *Move) bool
 	Move(mv *Move) error
 	GameOver() int
+	Get(r, c int) (int, error)
 	Reset()
 }
 
 // NewBoard returns an instance of a tic tac toe board for play.
 func NewBoard() Board {
-	return &BoardImp{}
+	b := &BoardImp{}
+	return b
 }
 
 // BoardImp is an implementation of a tictactoe board
@@ -25,12 +27,12 @@ type BoardImp struct {
 
 // Get is an accessor for a board position and returns
 // the value of the board at position row, col
-func (b *BoardImp) get(row, col int) (int, error) {
+func (b *BoardImp) Get(row, col int) (int, error) {
 	if row < 0 || row > 2 {
-		return -1, fmt.Errorf("Invalid row")
+		return -1, fmt.Errorf("invalid row")
 	}
 	if col < 0 || col > 2 {
-		return -1, fmt.Errorf("Invalid column")
+		return -1, fmt.Errorf("invalid column")
 	}
 	return b.data[row][col], nil
 }
@@ -76,11 +78,11 @@ func (b *BoardImp) Display() {
 func (b *BoardImp) Validate(mv *Move) bool {
 	row := mv.Row
 	col := mv.Col
-	if row >= 0 || row <= 2 {
-		return true
+	if row < 0 || row > 2 {
+		return false
 	}
-	if col >= 0 || col <= 2 {
-		return true
+	if col < 0 || col > 2 {
+		return false
 	}
 	if b.data[row][col] == 0 {
 		return true
@@ -126,7 +128,7 @@ func (b *BoardImp) Move(mv *Move) error {
 		b.data[row][col] = player
 		return nil
 	}
-	return fmt.Errorf("Invalid player")
+	return fmt.Errorf("invalid player")
 }
 
 // GameOver determines whether the game is over.

@@ -27,10 +27,20 @@ func NewRandomPlayer(pid int) *RandomPlayer {
 }
 
 func (rp *RandomPlayer) Move(b Board) (mv *Move, err error) {
+	moves, err := ValidMoves(b, rp.pid)
+	if err != nil {
+		return nil, err
+	}
+	idx := rand.Intn(len(moves))
+	mv = moves[idx]
+	return
+}
+
+func ValidMoves(b Board, pid int) ([]*Move, error) {
 	moves := make([]*Move, 0)
 	for rr := 0; rr < 3; rr++ {
 		for cc := 0; cc < 3; cc++ {
-			mv := &Move{Pid: rp.pid, Row: rr, Col: cc}
+			mv := &Move{Pid: pid, Row: rr, Col: cc}
 			if b.Validate(mv) {
 				moves = append(moves, mv)
 			}
@@ -39,7 +49,5 @@ func (rp *RandomPlayer) Move(b Board) (mv *Move, err error) {
 	if len(moves) == 0 {
 		return nil, &GameOver{}
 	}
-	idx := rand.Intn(len(moves))
-	mv = moves[idx]
-	return
+	return moves, nil
 }
