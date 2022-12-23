@@ -124,7 +124,6 @@ func (b *BoardImp) Move(mv *Move) error {
 		return &NonEmptyPositionError{row: row, col: col, player: b.data[row][col]}
 	}
 	if player == 1 || player == 2 {
-		fmt.Printf("player %d moved to (%d,%d)\n", player, row, col)
 		b.data[row][col] = player
 		return nil
 	}

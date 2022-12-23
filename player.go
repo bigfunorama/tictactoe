@@ -1,9 +1,14 @@
 package tictactoe
 
-import "math/rand"
+import (
+	"math/rand"
+
+	"bigfunbrewing.com/mlann"
+)
 
 type Player interface {
 	Move(b Board) (mv *Move, err error)
+	Train(sample *mlann.Sample)
 }
 
 type RandomPlayer struct {
@@ -34,6 +39,10 @@ func (rp *RandomPlayer) Move(b Board) (mv *Move, err error) {
 	idx := rand.Intn(len(moves))
 	mv = moves[idx]
 	return
+}
+
+func (rp *RandomPlayer) Train(sample *mlann.Sample) {
+	//do nothing
 }
 
 func ValidMoves(b Board, pid int) ([]*Move, error) {

@@ -1,19 +1,24 @@
 package tictactoe
 
 import (
-	"fmt"
+	"math/rand"
 
 	"bigfunbrewing.com/mlann"
 )
 
 // MlannPlayer Uses an existing network to determine moves.
 type MlannPlayer struct {
-	pid int
-	net *mlann.Network
+	pid     int
+	epsilon float64
+	net     *mlann.Network
 }
 
-func NewMlannPlayer(pid int, net *mlann.Network) *MlannPlayer {
-	return &MlannPlayer{net: net, pid: pid}
+func NewMlannPlayer(pid int, epsilon float64, net *mlann.Network) *MlannPlayer {
+	return &MlannPlayer{pid: pid, epsilon: epsilon, net: net}
+}
+
+func (mp *MlannPlayer) SetEpsilon(epsilon float64) {
+	mp.epsilon = epsilon
 }
 
 func (mp *MlannPlayer) Move(b Board) (mv *Move, err error) {
@@ -21,24 +26,27 @@ func (mp *MlannPlayer) Move(b Board) (mv *Move, err error) {
 	if err != nil {
 		return nil, err
 	}
-	b.Display()
-	for idx := range moves {
-		fmt.Println("P:", moves[idx].Pid, "to (", moves[idx].Row, ",", moves[idx].Col, ")")
-	}
-	X := MakeInput(b, moves[0])
-	out := mp.net.Forward(X)
-	v := out.Get(0, 0)
-	mv = moves[0]
-	for idx := 1; idx < len(moves); idx++ {
-		X := MakeInput(b, moves[idx])
+	if rand.Float64() < mp.epsilon {
+		mv, err = (&RandomPlayer{pid: mp.pid}).Move(b)
+	} else {
+		X := MakeInput(b, moves[0])
 		out := mp.net.Forward(X)
-		if out.Get(0, 0) > v {
-			v = out.Get(0, 0)
-			mv = moves[idx]
+		v := out.Get(0, 0)
+		mv = moves[0]
+		for idx := 1; idx < len(moves); idx++ {
+			X := MakeInput(b, moves[idx])
+			out := mp.net.Forward(X)
+			if out.Get(0, 0) > v {
+				v = out.Get(0, 0)
+				mv = moves[idx]
+			}
 		}
 	}
-	fmt.Println("picked move (", mv.Row, ",", mv.Col, ")")
 	return
+}
+
+func (mp *MlannPlayer) Train(sample *mlann.Sample) {
+	mp.net = mp.net.Adam(sample)
 }
 
 func MakeInput(b Board, mv *Move) *mlann.Matrix {
@@ -65,7 +73,6 @@ func loc(r, c int) int {
 
 func convertMove(mv *Move) *mlann.Matrix {
 	out := mlann.NewMatrix(9, 1)
-	fmt.Println("out", out.Shape(), "mv.Row", mv.Row, "mv.Col", mv.Col, "pos", loc(mv.Row, mv.Col))
 	if mv.Pid == 1 {
 		out.Set(loc(mv.Row, mv.Col), 0, float64(-1))
 	}
@@ -74,8 +81,4 @@ func convertMove(mv *Move) *mlann.Matrix {
 	}
 
 	return out
-}
-
-func Update(sample *mlann.Sample) {
-
 }
