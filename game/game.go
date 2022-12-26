@@ -2,77 +2,93 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 
+	"bigfunbrewing.com/mlann"
 	"bigfunbrewing.com/tictactoe"
 )
 
-func readMove() (mv *tictactoe.Move) {
+var netpath string
+var player int
 
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Printf("row col: ")
-		text, _ := reader.ReadString('\n')
-
-		items := strings.Split(text, " ")
-		if len(items) != 2 {
-			fmt.Println("Error reading your input. remember, row col")
-		} else {
-			item := strings.Trim(items[0], " \r\n")
-			fmt.Printf("parsed row |%s|\n", item)
-			row, err := strconv.Atoi(item)
-			if err != nil {
-				fmt.Println("Error reading your input. remember, row, col are numbers both in {0,1,2}")
-			} else {
-				item := strings.Trim(items[1], " \r\n")
-				fmt.Printf("parsed col |%s|\n", item)
-				col, err := strconv.Atoi(item)
-				if err != nil {
-					fmt.Println("Error reading your input. remember, row, col are numbers both in {0,1,2}")
-				} else {
-					mv = &tictactoe.Move{Pid: 1, Row: row, Col: col}
-					return
-				}
-			}
-
-		}
-	}
+func init() {
+	flag.StringVar(&netpath, "netpath", "", "path to the network to play against")
+	flag.IntVar(&player, "player", 1, "which player is the network. Default is 1")
 }
 
-func round(b tictactoe.Board, p tictactoe.Player) int {
-	mv1 := readMove()
-	valid := b.Validate(mv1)
-	if valid {
-		err := b.Move(mv1)
+func episode(player1, player2 tictactoe.Player) (p1mvs, p2mvs []*mlann.Matrix, outcome int) {
+	b := tictactoe.NewBoard()
+	b.Reset()
+	w := 0
+	p1mvs = make([]*mlann.Matrix, 0)
+	p2mvs = make([]*mlann.Matrix, 0)
+	for w == 0 {
+		mv, err := player1.Move(b)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(err.Error())
+			break
 		}
-		mv2, err := p.Move(b)
+		in := tictactoe.MakeInput(b, mv)
+		p1mvs = append(p1mvs, in)
+
+		err = b.Move(mv)
 		if err != nil {
-			return 0
+			fmt.Println(err.Error())
+			break
 		}
-		b.Move(mv2)
-	} else {
-		fmt.Println("Hey, that move won't work")
-		return 0
+		b.Display()
+		w = b.GameOver()
+		if w == -1 || w == 1 {
+			break
+		}
+		mv, err = player2.Move(b)
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+		in = tictactoe.MakeInput(b, mv)
+		p2mvs = append(p2mvs, in)
+
+		err = b.Move(mv)
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+		b.Display()
+		w = b.GameOver()
+		if w == -1 || w == 2 {
+			break
+		}
 	}
-	b.Display()
-	return b.GameOver()
+	outcome = w
+	return
 }
+
 func main() {
-
-	fmt.Println("You be X, I'll be O. You go first")
+	flag.Parse()
+	if netpath == "" {
+		flag.PrintDefaults()
+		return
+	}
+	f, err := os.Open(netpath)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	rdr := bufio.NewReader(f)
+	net, err := mlann.ReadNetwork(rdr)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println("I'll be X,You'll be O. I go first")
 	fmt.Println("enter your move as: row col")
 	b := &tictactoe.BoardImp{}
 	b.Reset()
-	b.Display()
-	player2 := tictactoe.NewRandomPlayer(2)
-	done := round(b, player2)
-	for done == 0 {
-		done = round(b, player2)
-	}
+
+	player1 := tictactoe.NewMlannPlayer(1, 0.0, net)
+	player2 := tictactoe.NewHumanPlayer(2)
+	episode(player1, player2)
 }

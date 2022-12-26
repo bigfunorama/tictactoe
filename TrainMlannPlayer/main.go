@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"bigfunbrewing.com/mlann"
 	"bigfunbrewing.com/tictactoe"
@@ -61,16 +62,16 @@ func main() {
 	epsilon = 0.15
 	fmt.Println("train player 1")
 	mlannplayer1.SetEpsilon(epsilon)
-	trainplayers(mlannplayer1, randoplayer2, 10000, gamma)
+	trainplayers(mlannplayer1, randoplayer2, 50000, gamma)
 
 	//train player 2 on a random player
 	fmt.Println("\ntrain player 2")
 	mlannplayer2.SetEpsilon(epsilon)
-	trainplayers(randoplayer1, mlannplayer2, 20000, gamma)
+	trainplayers(randoplayer1, mlannplayer2, 50000, gamma)
 
 	//train player 1 on player 2
-	//fmt.Println("play1 v player2")
-	//trainplayers(mlannplayer1, mlannplayer2, 100000, gamma)
+	fmt.Println("play1 v player2")
+	trainplayers(mlannplayer1, mlannplayer2, 300000, gamma)
 
 	//evaluate player 1 and player 2 on random players
 	epsilon = 0.0
@@ -79,9 +80,25 @@ func main() {
 	fmt.Println("\nplayer1 win", win, "loss", lose, "draw", draw)
 	fmt.Printf("player1 ending win %.2f\n", float64(win)/float64(win+lose+draw))
 
+	f, err := os.Create("player1.net")
+	if err != nil {
+		fmt.Println("player 1 failed to write", err.Error())
+	} else {
+		defer f.Close()
+		net.Write(f)
+	}
+
 	win, lose, draw = evalplayers(randoplayer1, mlannplayer2, 1000)
 	fmt.Println("\nplayer2 win", win, "loss", lose, "draw", draw)
 	fmt.Printf("player2 ending win %.2f\n", float64(win)/float64(win+lose+draw))
+
+	f2, err := os.Create("player2.net")
+	if err != nil {
+		fmt.Println("player2 failed to write", err.Error())
+	} else {
+		defer f2.Close()
+		net2.Write(f2)
+	}
 }
 
 func evalplayers(mlannplayer, randoplayer tictactoe.Player, episodes int) (win, lose, draw int) {
