@@ -1,6 +1,7 @@
 package tictactoe
 
 import (
+	"fmt"
 	"math/rand"
 
 	"bigfunbrewing.com/mlann"
@@ -45,8 +46,54 @@ func (mp *MlannPlayer) Move(b Board) (mv *Move, err error) {
 	return
 }
 
+func (mp *MlannPlayer) evalMove(b Board, mv *Move) float64 {
+	X := MakeInput(b, mv)
+	out := mp.net.Forward(X)
+	return out.Get(0, 0)
+}
+
 func (mp *MlannPlayer) Train(sample *mlann.Sample) {
 	mp.net = mp.net.Adam(sample)
+}
+
+func convert(player int) (out string) {
+	if player == 1 {
+		out = "    X    "
+	}
+	if player == 2 {
+		out = "    O    "
+	}
+	return
+}
+func (mp *MlannPlayer) Display(b Board) {
+	fmt.Println("         |     0     |     1     |     2     ")
+	fmt.Println("---------+-----------+-----------+-----------")
+	for i := 0; i < 3; i++ {
+		z, _ := b.Get(i, 0)
+		zero := convert(z)
+		if zero == "" {
+			v := mp.evalMove(b, &Move{Pid: mp.pid, Row: i, Col: 0})
+			zero = fmt.Sprintf("%.5f", v)
+		}
+		o, _ := b.Get(i, 1)
+		one := convert(o)
+		if one == "" {
+			v := mp.evalMove(b, &Move{Pid: mp.pid, Row: i, Col: 1})
+			one = fmt.Sprintf("%.5f", v)
+		}
+		t, _ := b.Get(i, 2)
+		two := convert(t)
+		if two == "" {
+			v := mp.evalMove(b, &Move{Pid: mp.pid, Row: i, Col: 2})
+			two = fmt.Sprintf("%.5f", v)
+		}
+		fmt.Printf("    %d    | %s | %s | %s\n", i, zero, one, two)
+		if i < 2 {
+			fmt.Println("---------+---------+---------+---------")
+		} else {
+			fmt.Println()
+		}
+	}
 }
 
 func MakeInput(b Board, mv *Move) *mlann.Matrix {

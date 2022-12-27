@@ -14,6 +14,7 @@ import (
 type Player interface {
 	Move(b Board) (mv *Move, err error)
 	Train(sample *mlann.Sample)
+	Display(b Board)
 }
 
 type RandomPlayer struct {
@@ -48,6 +49,10 @@ func (rp *RandomPlayer) Move(b Board) (mv *Move, err error) {
 
 func (rp *RandomPlayer) Train(sample *mlann.Sample) {
 	//do nothing
+}
+
+func (rp *RandomPlayer) Display(b Board) {
+
 }
 
 func ValidMoves(b Board, pid int) ([]*Move, error) {
@@ -112,4 +117,20 @@ func (hp *HumanPlayer) Move(b Board) (mv *Move, err error) {
 
 func (hp *HumanPlayer) Train(sample *mlann.Sample) {
 
+}
+
+func (hp *HumanPlayer) Display(b Board) {
+	fmt.Println("   | 0 | 1 | 2 ")
+	fmt.Println("---+---+---+---")
+	for i := 0; i < 3; i++ {
+		zero, _ := b.Get(i, 0)
+		one, _ := b.Get(i, 1)
+		two, _ := b.Get(i, 2)
+		fmt.Printf(" %d | %d | %d | %d\n", i, zero, one, two)
+		if i < 2 {
+			fmt.Println("---+---+---+---")
+		} else {
+			fmt.Println()
+		}
+	}
 }
