@@ -96,6 +96,10 @@ func (mp *MlannPlayer) Display(b Board) {
 	}
 }
 
+func (mp *MlannPlayer) GetNetwork() *mlann.Network {
+	return mp.net
+}
+
 func MakeInput(b Board, mv *Move) *mlann.Matrix {
 	out := mlann.NewMatrix(9, 1)
 	for i := 0; i < 3; i++ {

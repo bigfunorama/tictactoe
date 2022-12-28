@@ -11,15 +11,18 @@ import (
 
 var netpath string
 var player int
+var episodes int
 
 func init() {
 	flag.StringVar(&netpath, "netpath", "", "path to the network to play against")
 	flag.IntVar(&player, "player", 1, "which player is the network. Default is 1")
+	flag.IntVar(&episodes, "games", 50, "number of games to play")
 }
 
 func episode(player1, player2 tictactoe.Player) (p1mvs, p2mvs []*mlann.Matrix, outcome int) {
 	b := tictactoe.NewBoard()
 	b.Reset()
+	b.Display()
 	w := 0
 	p1mvs = make([]*mlann.Matrix, 0)
 	p2mvs = make([]*mlann.Matrix, 0)
@@ -78,15 +81,25 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Println("I'll be X,You'll be O. I go first")
-	fmt.Println("enter your move as: row col")
 	b := &tictactoe.BoardImp{}
 	b.Reset()
 
-	player1 := tictactoe.NewMlannPlayer(1, 0.0, net)
-	player2 := tictactoe.NewHumanPlayer(2)
+	var player1 tictactoe.Player
+	var player2 tictactoe.Player
 
-	trainplayers(player1, player2, 50, 0.9)
+	if player == 1 {
+		fmt.Println("I'll be X,You'll be O. I go first")
+		fmt.Println("enter your move as: row col")
+		player1 = tictactoe.NewMlannPlayer(1, 0.01, net)
+		player2 = tictactoe.NewHumanPlayer(2)
+	} else {
+		fmt.Println("I'll be O,You'll be X. You go first")
+		fmt.Println("enter your move as: row col")
+		player1 = tictactoe.NewHumanPlayer(1)
+		player2 = tictactoe.NewMlannPlayer(2, 0.01, net)
+	}
+
+	trainplayers(player1, player2, episodes, 0.5)
 	f2, err := os.Create(netpath)
 	if err != nil {
 		fmt.Println("player 1 failed to write", err.Error())
@@ -142,13 +155,13 @@ func makeSamples(gamma float64, mvs []*mlann.Matrix, outcome, pid int) *mlann.Sa
 	reward := float64(0.0)
 	if outcome > 0 && outcome == pid {
 		//player 1 won
-		reward = 1.0
+		reward = 1.5
 	}
 	if outcome > 0 && outcome != pid {
 		reward = -0.50
 	}
 	if outcome == -1 {
-		reward = 0.6
+		reward = 1.5
 	}
 	X := mvs[len(mvs)-1]
 	Y := mlann.NewMatrix(1, 1)
