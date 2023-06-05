@@ -2,9 +2,11 @@ package tictactoe
 
 import (
 	"fmt"
+
+	"bigfunbrewing.com/tensor"
 )
 
-// Board provides a means of displaying the current game state:w
+// Board provides a means of displaying the current game state
 type Board interface {
 	Display()
 	Validate(mv *Move) bool
@@ -12,17 +14,52 @@ type Board interface {
 	GameOver() int
 	Get(r, c int) (int, error)
 	Reset()
+	GamePlayed() *GamePlayed
+}
+
+// Position is a tensor that encodes a board state with a move.
+type Position *tensor.Tensor[float64]
+
+// MakeInput converts a board and a move into a single Position that includes an
+// 18 row tensor with the board state in the first 9 rows and the move encoded in
+// the second set of nine rows.
+func MakePosition(b Board, mv *Move) Position {
+	out := tensor.New(tensor.WithShape[float64](9, 1), tensor.WithBacking[float64](tensor.Repeat[float64](9, 0)))
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			p, _ := b.Get(i, j)
+			if p == 1 {
+				out.Set(float64(-1), loc(i, j), 0)
+			}
+			if p == 2 {
+				out.Set(float64(1), loc(i, j), 0)
+			}
+		}
+	}
+	pos := mv.ToPosition()
+	out = out.Append(0, pos)
+	return out
+}
+
+// loc is a helper to convert a board row and column into an offset in a column vector
+func loc(r, c int) int {
+	return r*3 + c
 }
 
 // NewBoard returns an instance of a tic tac toe board for play.
 func NewBoard() Board {
-	b := &BoardImp{}
+	b := &BoardImp{g: NewGamePlayed()}
 	return b
 }
 
 // BoardImp is an implementation of a tictactoe board
 type BoardImp struct {
 	data [][]int
+	g    *GamePlayed
+}
+
+func (b *BoardImp) GamePlayed() *GamePlayed {
+	return b.g
 }
 
 // Get is an accessor for a board position and returns
@@ -46,6 +83,7 @@ func (b *BoardImp) Reset() {
 			b.data[i][j] = 0
 		}
 	}
+	b.g = NewGamePlayed()
 }
 
 func dplayer(player int) (ps string) {
@@ -125,9 +163,21 @@ func (b *BoardImp) Move(mv *Move) error {
 	}
 	if player == 1 || player == 2 {
 		b.data[row][col] = player
+		b.g.Append(MakePosition(b, mv))
 		return nil
 	}
+
 	return fmt.Errorf("invalid player")
+}
+
+func (b *BoardImp) ToPosition() Position {
+	data := make([]float64, 9)
+	for j := 0; j < 3; j++ {
+		for i := 0; i < 3; i++ {
+			data[i+j*3] = float64(b.data[i][j])
+		}
+	}
+	return tensor.New(tensor.WithShape[float64](9, 1), tensor.WithBacking[float64](data))
 }
 
 // GameOver determines whether the game is over.
@@ -143,6 +193,7 @@ func (b *BoardImp) GameOver() int {
 		if b.data[i][0] == b.data[i][1] &&
 			b.data[i][0] == b.data[i][2] &&
 			b.data[i][0] != 0 {
+			b.g.outcome = float64(b.data[i][0])
 			return b.data[i][0]
 		}
 	}
@@ -151,6 +202,7 @@ func (b *BoardImp) GameOver() int {
 		if b.data[0][j] == b.data[1][j] &&
 			b.data[0][j] == b.data[2][j] &&
 			b.data[0][j] != 0 {
+			b.g.outcome = float64(b.data[0][j])
 			return b.data[0][j]
 		}
 	}
@@ -158,11 +210,13 @@ func (b *BoardImp) GameOver() int {
 	if b.data[0][0] == b.data[1][1] &&
 		b.data[0][0] == b.data[2][2] &&
 		b.data[0][0] != 0 {
+		b.g.outcome = float64(b.data[0][0])
 		return b.data[0][0]
 	}
 	if b.data[0][2] == b.data[1][1] &&
 		b.data[0][2] == b.data[2][0] &&
 		b.data[0][2] != 0 {
+		b.g.outcome = float64(b.data[0][2])
 		return b.data[0][2]
 	}
 	//2. no three in a row but no empty spaces
@@ -175,6 +229,7 @@ func (b *BoardImp) GameOver() int {
 		}
 	}
 	if empty == 0 {
+		b.g.outcome = float64(-1)
 		return -1
 	}
 	return 0

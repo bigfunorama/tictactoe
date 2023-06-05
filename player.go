@@ -8,13 +8,14 @@ import (
 	"strconv"
 	"strings"
 
-	"bigfunbrewing.com/mlann"
+	"bigfunbrewing.com/tensor"
 )
 
 type Player interface {
 	Move(b Board) (mv *Move, err error)
-	Train(sample *mlann.Sample)
+	Train(sample []*GamePlayed)
 	Display(b Board)
+	Persist(path string)
 }
 
 type RandomPlayer struct {
@@ -25,6 +26,18 @@ type Move struct {
 	Pid int
 	Row int
 	Col int
+}
+
+func (mv *Move) ToPosition() Position {
+	out := tensor.New(tensor.WithShape[float64](9, 1), tensor.WithBacking[float64](tensor.Repeat[float64](9, 0)))
+	if mv.Pid == 1 {
+		out.Set(float64(-1), loc(mv.Row, mv.Col), 0)
+	}
+	if mv.Pid == 2 {
+		out.Set(float64(1), loc(mv.Row, mv.Col), 0)
+	}
+
+	return out
 }
 
 type GameOver struct{}
@@ -47,7 +60,11 @@ func (rp *RandomPlayer) Move(b Board) (mv *Move, err error) {
 	return
 }
 
-func (rp *RandomPlayer) Train(sample *mlann.Sample) {
+func (rp *RandomPlayer) Train(games []*GamePlayed) {
+	//do nothing
+}
+
+func (rp *RandomPlayer) Persist(path string) {
 	//do nothing
 }
 
@@ -115,7 +132,11 @@ func (hp *HumanPlayer) Move(b Board) (mv *Move, err error) {
 	return
 }
 
-func (hp *HumanPlayer) Train(sample *mlann.Sample) {
+func (hp *HumanPlayer) Train(games []*GamePlayed) {
+
+}
+
+func (hp *HumanPlayer) Persist(path string) {
 
 }
 
