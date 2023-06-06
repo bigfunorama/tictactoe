@@ -25,6 +25,8 @@ func NewGamePlayed() *GamePlayed {
 	return &GamePlayed{positions: make([]Position, 0)}
 }
 
+// ToSample converts the GamePlayed into a sample where the slice of reward
+// has already decayed the outcome back to the first move of the game.
 func (gp *GamePlayed) ToSample(reward []float64) *tensor.Sample[float64] {
 	out := gp.positions[0]
 	for i := 1; i < len(gp.positions); i++ {
@@ -32,6 +34,16 @@ func (gp *GamePlayed) ToSample(reward []float64) *tensor.Sample[float64] {
 	}
 	sample := tensor.NewSample[float64](out, tensor.New(tensor.WithShape[float64](1, len(reward)), tensor.WithBacking(reward)))
 	return sample
+}
+
+// ToSequenceSample converts a GamePlayed into a SequenceSample suitable for an RNN
+// reward corresponds to the outcome of the game played.
+func (gp *GamePlayed) ToSequenceSample(reward float64) *tensor.SequenceSample {
+	pos := make([]*tensor.Tensor[float64], len(gp.positions))
+	for i := range gp.positions {
+		pos[i] = (*tensor.Tensor[float64])(gp.positions[i])
+	}
+	return tensor.MakeSequenceSample(pos, reward)
 }
 
 // Rotate the GamePlayed so that all translationally equivalent Games are

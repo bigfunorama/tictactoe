@@ -48,7 +48,7 @@ func main() {
 		if net1path == "" {
 			net1path = "player1.net"
 		}
-		player1 = tictactoe.NewGruPlayer(1, net1path)
+		player1 = tictactoe.NewGruPlayer(1, net1path, epsilon)
 	}
 
 	switch splayer2 {
