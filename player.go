@@ -30,12 +30,7 @@ type Move struct {
 
 func (mv *Move) ToPosition() Position {
 	out := tensor.New(tensor.WithShape[float64](9, 1), tensor.WithBacking[float64](tensor.Repeat[float64](9, 0)))
-	if mv.Pid == 1 {
-		out.Set(float64(-1), loc(mv.Row, mv.Col), 0)
-	}
-	if mv.Pid == 2 {
-		out.Set(float64(1), loc(mv.Row, mv.Col), 0)
-	}
+	out.Set(float64(mv.Pid), loc(mv.Row, mv.Col), 0)
 
 	return out
 }

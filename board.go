@@ -28,12 +28,7 @@ func MakePosition(b Board, mv *Move) Position {
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
 			p, _ := b.Get(i, j)
-			if p == 1 {
-				out.Set(float64(-1), loc(i, j), 0)
-			}
-			if p == 2 {
-				out.Set(float64(1), loc(i, j), 0)
-			}
+			out.Set(float64(p), loc(i, j), 0)
 		}
 	}
 	pos := mv.ToPosition()
@@ -43,7 +38,7 @@ func MakePosition(b Board, mv *Move) Position {
 
 // loc is a helper to convert a board row and column into an offset in a column vector
 func loc(r, c int) int {
-	return r*3 + c
+	return r + 3*c
 }
 
 // NewBoard returns an instance of a tic tac toe board for play.
@@ -162,8 +157,8 @@ func (b *BoardImp) Move(mv *Move) error {
 		return &NonEmptyPositionError{row: row, col: col, player: b.data[row][col]}
 	}
 	if player == 1 || player == 2 {
-		b.data[row][col] = player
 		b.g.Append(MakePosition(b, mv))
+		b.data[row][col] = player
 		return nil
 	}
 
@@ -174,7 +169,7 @@ func (b *BoardImp) ToPosition() Position {
 	data := make([]float64, 9)
 	for j := 0; j < 3; j++ {
 		for i := 0; i < 3; i++ {
-			data[i+j*3] = float64(b.data[i][j])
+			data[loc(i, j)] = float64(b.data[i][j])
 		}
 	}
 	return tensor.New(tensor.WithShape[float64](9, 1), tensor.WithBacking[float64](data))

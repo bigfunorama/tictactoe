@@ -1,6 +1,8 @@
 package tictactoe
 
-import "bigfunbrewing.com/tensor"
+import (
+	"bigfunbrewing.com/tensor"
+)
 
 // GamePlayed records the sequence of Positions that occurred during the game along with
 // the outcome.
@@ -22,6 +24,8 @@ func (gp *GamePlayed) Outcome() float64 {
 }
 
 func NewGamePlayed() *GamePlayed {
+	pos := make([]Position, 1)
+	pos[0] = tensor.New(tensor.WithShape[float64](9, 1), tensor.WithBacking(tensor.Repeat[float64](9, 0.0)))
 	return &GamePlayed{positions: make([]Position, 0)}
 }
 
@@ -30,7 +34,7 @@ func NewGamePlayed() *GamePlayed {
 func (gp *GamePlayed) ToSample(reward []float64) *tensor.Sample[float64] {
 	out := gp.positions[0]
 	for i := 1; i < len(gp.positions); i++ {
-		(*tensor.Tensor[float64])(out).Append(1, gp.positions[i])
+		out = (*tensor.Tensor[float64])(out).Append(1, gp.positions[i])
 	}
 	sample := tensor.NewSample[float64](out, tensor.New(tensor.WithShape[float64](1, len(reward)), tensor.WithBacking(reward)))
 	return sample
@@ -49,6 +53,9 @@ func (gp *GamePlayed) ToSequenceSample(reward float64) *tensor.SequenceSample {
 // Rotate the GamePlayed so that all translationally equivalent Games are
 // represented as well.
 func (gp *GamePlayed) Rotate(inc int) *GamePlayed {
+	if inc == 0 {
+		return gp
+	}
 	out := NewGamePlayed()
 	out.outcome = gp.outcome
 	out.positions = make([]Position, len(gp.positions))

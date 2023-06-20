@@ -21,7 +21,7 @@ func init() {
 	flag.StringVar(&splayer1, "player1", "", "type of player to use for player 1. One of {randoplayer, mlannplayer}")
 	flag.StringVar(&splayer2, "player2", "", "type of player to use for player 2. One of {randoplayer, mlannplayer}")
 	flag.IntVar(&episodes, "episodes", 10000, "number of games to play with this pair of players")
-	flag.Float64Var(&gamma, "gamma", 0.9, "gamma is the discount rate on future rewards")
+	flag.Float64Var(&gamma, "gamma", 0.5, "gamma is the discount rate on future rewards")
 	flag.Float64Var(&epsilon, "epsilon", 0.01, "epsilon is the exploration rate for NN players")
 }
 
@@ -46,7 +46,7 @@ func main() {
 		player1 = tictactoe.NewMlannPlayer(1, net1path, epsilon, gamma)
 	case "gruplayer":
 		if net1path == "" {
-			net1path = "player1.net"
+			net1path = "gplayer1.net"
 		}
 		player1 = tictactoe.NewGruPlayer(1, net1path, epsilon)
 	}
@@ -59,6 +59,11 @@ func main() {
 			net2path = "player2.net"
 		}
 		player2 = tictactoe.NewMlannPlayer(2, net2path, epsilon, gamma)
+	case "gruplayer":
+		if net2path == "" {
+			net2path = "gplayer2.net"
+		}
+		player2 = tictactoe.NewGruPlayer(2, net2path, epsilon)
 	}
 
 	// train the two players by having them play each other
@@ -75,16 +80,18 @@ func trainplayers(player1, player2 tictactoe.Player, episodes int, gamma float64
 	ctwo := 0
 	cdraw := 0
 	games := make([]*tictactoe.GamePlayed, 0)
-	bsize := 200
+	bsize := 20
 	var sone float64
 	var stwo float64
 	var sdraw float64
 	batches := 0
+	gamelen := 0
 	for i := 0; i < episodes; i++ {
 		//play a game and get the sequence of [board,mv] and who won
 		g, outcome := episode(player1, player2)
 
 		games = append(games, g)
+		gamelen += len(g.Positions())
 		switch outcome {
 		case 1:
 			cone++
@@ -100,19 +107,21 @@ func trainplayers(player1, player2 tictactoe.Player, episodes int, gamma float64
 			pone := float64(cone) / float64(bsize)
 			ptwo := float64(ctwo) / float64(bsize)
 			pdraw := float64(cdraw) / float64(bsize)
-			sone += pone
-			stwo += ptwo
-			sdraw += pdraw
+			sone += float64(cone)
+			stwo += float64(ctwo)
+			sdraw += float64(cdraw)
 			batches += 1
 
-			fmt.Printf("%d, %.2f, %.2f, %.2f\n", i, sone/float64(batches), stwo/float64(batches), sdraw/float64(batches))
+			if i%1000 == 0 {
+				fmt.Printf("%d, %.2f, %.2f, %.2f   ,   %.2f, %.2f, %.2f, %.2f\n", i, sone/float64(i), stwo/float64(i), sdraw/float64(i), pone, ptwo, pdraw, float64(gamelen)/float64(i))
+			}
 			cone = 0
 			ctwo = 0
 			cdraw = 0
 			games = make([]*tictactoe.GamePlayed, 0)
 		}
 	}
-	fmt.Printf("final: %d, one: %.2f, two: %.2f, draw: %.2f\n", batches, sone/float64(batches), stwo/float64(batches), sdraw/float64(batches))
+	fmt.Printf("final: %d, one: %.2f, two: %.2f, draw: %.2f\n", batches, sone/float64(episodes), stwo/float64(episodes), sdraw/float64(episodes))
 }
 
 // episode plays a game of tic tac toe asking player1 and then player2 to move on a shared
